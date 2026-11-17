@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+<meta charset="UTF-8">
+<title>Clau · icon source</title>
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 1024px;
+    height: 1024px;
+    overflow: hidden;
+  }
+  body {
+    background-color: #bc8128;
+    background-image:
+      radial-gradient(120% 100% at 0% 0%, rgba(255, 220, 140, 0.35), transparent 60%),
+      radial-gradient(120% 100% at 100% 100%, rgba(60, 30, 0, 0.18), transparent 60%);
+    color: #f4ede1;
+    display: grid;
+    place-items: center;
+    font-family: 'Bravura', 'Noto Music', 'Times New Roman', 'Liberation Serif', serif;
+  }
+  .clef {
+    font-size: 920px;
+    line-height: 1;
+    transform: translateY(-0.02em);
+    text-shadow: 0 12px 36px rgba(60, 30, 0, 0.25);
+  }
+  body::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.08;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+</style>
+</head>
+<body><div class="clef">𝄢</div></body>
+</html>
