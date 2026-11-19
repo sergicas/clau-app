@@ -15,6 +15,8 @@ final class LessonRunner: ObservableObject {
 
     // Pas d'escoltar.
     @Published private(set) var sounding: Int?
+    /// Posició, dins l'exemple, de la nota que sona: per seguir-la a la partitura.
+    @Published private(set) var soundingIndex: Int?
     @Published private(set) var isPlaying = false
     @Published private(set) var hasListened = false
 
@@ -34,6 +36,8 @@ final class LessonRunner: ObservableObject {
     @Published private(set) var marks: [RhythmJudge.Mark] = []
     /// Tecla que toca ara en un ritme.
     @Published private(set) var rhythmTarget: Int?
+    /// Posició de la nota que toca ara en un ritme.
+    @Published private(set) var rhythmIndex: Int?
 
     private var judge: RhythmJudge?
     private var patternStart: CFTimeInterval = 0
@@ -79,6 +83,7 @@ final class LessonRunner: ObservableObject {
         audio?.stopPlaying()
         audio?.setListening(false)
         sounding = nil
+        soundingIndex = nil
         isPlaying = false
 
         if stepIndex + 1 < steps.count {
@@ -101,6 +106,7 @@ final class LessonRunner: ObservableObject {
         count = nil
         judge = nil
         rhythmTarget = nil
+        rhythmIndex = nil
         marks = []
 
         switch step {
@@ -140,11 +146,11 @@ final class LessonRunner: ObservableObject {
         let first = origin + Double(lead) * beat
 
         // Cops i notes, ordenats pel moment en què han de sonar.
-        var events: [(time: Double, tick: Int?, tone: Tone?)] = []
-        for tick in 0..<ticks { events.append((origin + Double(tick) * beat, tick, nil)) }
+        var events: [(time: Double, tick: Int?, tone: Tone?, index: Int)] = []
+        for tick in 0..<ticks { events.append((origin + Double(tick) * beat, tick, nil, 0)) }
         var at = first
-        for tone in tones {
-            events.append((at, nil, tone))
+        for (index, tone) in tones.enumerated() {
+            events.append((at, nil, tone, index))
             at += tone.beats * beat
         }
         events.sort { $0.time < $1.time }
@@ -160,12 +166,14 @@ final class LessonRunner: ObservableObject {
                 }
                 if let tone = event.tone {
                     self.sounding = tone.rest ? nil : tone.midi
+                    self.soundingIndex = event.index
                     if !tone.rest { self.audio?.play(midi: tone.midi, seconds: tone.beats * beat * 0.92) }
                 }
             }
             await LessonRunner.sleep(until: end)
             guard !Task.isCancelled, let self else { return }
             self.sounding = nil
+            self.soundingIndex = nil
             self.count = nil
             self.isPlaying = false
             self.hasListened = true
@@ -243,9 +251,11 @@ final class LessonRunner: ObservableObject {
     private func showRhythmTarget() {
         guard case .rhythm(_, let tones, _, _, _) = step, let index = judge?.nextToneIndex else {
             rhythmTarget = nil
+            rhythmIndex = nil
             return
         }
         rhythmTarget = tones[index].midi
+        rhythmIndex = index
     }
 
     private func finishRhythm() {
@@ -254,6 +264,7 @@ final class LessonRunner: ObservableObject {
         self.judge = judge
         marks = judge.toneMarks
         rhythmTarget = nil
+        rhythmIndex = nil
         rhythmPhase = .idle
         count = nil
         audio?.setListening(false)

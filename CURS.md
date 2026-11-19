@@ -75,6 +75,10 @@ Cada etapa acaba amb una peça. Unes 60 lliçons en total.
 23. Llegir una melodia que no has sentit mai
 24. **Peça:** Au clair de la lune, llegida
 
+> Nota del 19-11-2026: d'Au clair de la lune es toca només la primera part (quatre compassos, que es repeteixen). La segona part baixa fins a un sol greu i no hi cap amb cinc dits. Pendent del vistiplau d'en Sergi.
+>
+> Els noms «negra», «blanca», «rodona» i «corxera» apareixen a la lliçó 21, quan es veuen escrites. La clau de sol surt de la lletra «Apple Symbols» del sistema; la resta del pentagrama (notes, pals, silencis, compassos) es dibuixa a mà. `proves/pentagrama.sh` en fa una mostra al Mac.
+
 ### Etapa 4 · La mà esquerra (8 lliçons)
 
 25. La mà esquerra també té cinc dits, però al revés

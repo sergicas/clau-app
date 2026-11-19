@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		015A98488AC103C698B0FE9B /* StaffView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFD2099613D4D6CA39704295 /* StaffView.swift */; };
 		06919A7207B76F7AF92B96F7 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 712A8681818AA6A941CB37C4 /* Theme.swift */; };
 		35B2B76E5AE3579FB435EA68 /* LessonProgress.swift in Sources */ = {isa = PBXBuildFile; fileRef = 336BEDE5C29F2B11B5544B78 /* LessonProgress.swift */; };
 		3BAA7AE6C0D32A2502429D72 /* Pitch.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0DDF180E1939A9309E0E2843 /* Pitch.swift */; };
@@ -48,6 +49,7 @@
 		8099878181A4C1F93417B36F /* CourseView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CourseView.swift; sourceTree = "<group>"; };
 		99C74C056F434C57B2B98128 /* Music.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Music.swift; sourceTree = "<group>"; };
 		9F6C7F262ADCB0DD6578A829 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		AFD2099613D4D6CA39704295 /* StaffView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StaffView.swift; sourceTree = "<group>"; };
 		B05DE4C645372C26961D6A76 /* LessonView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LessonView.swift; sourceTree = "<group>"; };
 		B9157441E757955E69B9DF71 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		C731962505E90DDE971FAAE8 /* Rhythm.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Rhythm.swift; sourceTree = "<group>"; };
@@ -91,6 +93,7 @@
 				0DDF180E1939A9309E0E2843 /* Pitch.swift */,
 				9F6C7F262ADCB0DD6578A829 /* PrivacyInfo.xcprivacy */,
 				C731962505E90DDE971FAAE8 /* Rhythm.swift */,
+				AFD2099613D4D6CA39704295 /* StaffView.swift */,
 				712A8681818AA6A941CB37C4 /* Theme.swift */,
 			);
 			path = Clau;
@@ -211,6 +214,7 @@
 				B0DCC04841741CF9F3AC8388 /* Music.swift in Sources */,
 				3BAA7AE6C0D32A2502429D72 /* Pitch.swift in Sources */,
 				C222A95B8D1922FC293C65AA /* Rhythm.swift in Sources */,
+				015A98488AC103C698B0FE9B /* StaffView.swift in Sources */,
 				06919A7207B76F7AF92B96F7 /* Theme.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

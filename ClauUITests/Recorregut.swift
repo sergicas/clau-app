@@ -168,4 +168,46 @@ final class Recorregut: XCTestCase {
         capture("r08-l15-apaisat-ritme")
         XCUIDevice.shared.orientation = .portrait
     }
+
+    /// Etapa 3: captures de les partitures.
+    func testLlegir() {
+        XCUIDevice.shared.orientation = .portrait
+        launch(instrument: "screen")
+
+        open(lesson: 16)
+        capture("g01-l16-cinc-ratlles")
+        tap("Continua"); capture("g02-l16-ratlla-i-espai")
+        tap("Continua"); tap("Continua"); capture("g03-l16-escolta")
+        tap("Ara jo"); capture("g04-l16-toca-llegint")
+        press([60, 62])
+        capture("g05-l16-a-mig-llegir")
+        tap("Tanca la lliçó")
+
+        open(lesson: 17)
+        capture("g06-l17-clau-de-sol")
+        tap("Continua"); capture("g07-l17-el-sol")
+        tap("Tanca la lliçó")
+
+        open(lesson: 18)
+        tap("Continua"); tap("Ara jo")
+        press([60, 62, 64, 60, 62, 64])
+        XCTAssertTrue(app.staticTexts["Ara sense els noms. Mira on és cada nota."].waitForExistence(timeout: 6), "Llegir do, re, mi dues vegades no ha fet avançar el pas")
+        capture("g08-l18-sense-noms")
+        tap("Tanca la lliçó")
+
+        open(lesson: 21)
+        capture("g09-l21-figures")
+        tap("Continua"); tap("Ara jo"); capture("g10-l21-ritme-llegit")
+        tap("Tanca la lliçó")
+
+        open(lesson: 22)
+        tap("Continua"); capture("g11-l22-compassos")
+        tap("Tanca la lliçó")
+
+        XCUIDevice.shared.orientation = .landscapeLeft
+        open(lesson: 24)
+        capture("g12-l24-apaisat-mira")
+        tap("Continua"); capture("g13-l24-apaisat-llegeix")
+        XCUIDevice.shared.orientation = .portrait
+    }
 }

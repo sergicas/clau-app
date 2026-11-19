@@ -54,6 +54,20 @@ struct Goal: Equatable {
     }
 }
 
+/// Notes escrites en un pentagrama.
+struct Score: Equatable {
+    var tones: [Tone] = []
+    var clef = true
+    /// El nom de cada nota, escrit a sota.
+    var names = false
+    /// Quants cops dura cada nota, escrit a sota.
+    var counts = false
+    /// Les ratlles numerades de l'1 al 5.
+    var numbered = false
+    /// Amb compassos: ratlles verticals, els dos quatres i les notes repartides segons el que duren.
+    var bars = false
+}
+
 /// El teclat dibuixat que acompanya un pas.
 struct Keyboard: Equatable {
     var low = 60
@@ -64,6 +78,8 @@ struct Keyboard: Equatable {
     var names: [Int: String] = [:]
     /// Número de dit a sobre de la tecla.
     var fingers: [Int: Int] = [:]
+    /// Partitura que s'ensenya amb el pas, si es llegeix.
+    var score: Score?
 
     static let oneOctave = Keyboard()
     static let threeOctaves = Keyboard(low: 48, high: 83)
@@ -72,6 +88,7 @@ struct Keyboard: Equatable {
 enum Picture: Equatable {
     case symbol(String)
     case keyboard(Keyboard)
+    case staff(Score)
 }
 
 enum Step: Equatable {
@@ -119,11 +136,10 @@ struct Stage: Identifiable, Equatable {
 // MARK: - Contingut
 
 enum Course {
-    static let stages: [Stage] = [stage1, stage2]
+    static let stages: [Stage] = [stage1, stage2, stage3]
 
     /// Etapes que encara no hi són, per ensenyar el camí.
     static let upcoming: [(title: String, summary: String)] = [
-        ("Llegir", "El pentagrama i la clau de sol"),
         ("La mà esquerra", "La clau de fa i melodies amb l'esquerra"),
         ("Les dues mans", "Baix i melodia, mans juntes"),
         ("Sortir dels cinc dits", "El pas del polze, l'escala i les tecles negres"),
@@ -512,6 +528,221 @@ enum Course {
             .listen(text: "L'últim tros.", tones: jingleE, bpm: 80, keyboard: fiveFingerKeyboard, pulse: true),
             .rhythm(text: "Toca l'últim tros.", tones: jingleE, bpm: 80, rounds: 2, keyboard: fiveFingerKeyboard),
             .rhythm(text: "Ara tota sencera, sense pressa. Es perdona alguna nota.", tones: jingleWhole, bpm: 80, rounds: 1, keyboard: fiveFingerKeyboard),
+        ],
+        isPiece: true
+    )
+
+    // MARK: Etapa 3 · Llegir
+
+    private static let A = 69, B = 71
+
+    /// Els cinc dits col·locats, sense el nom de les tecles: aquí es llegeix.
+    private static let readingKeyboard = Keyboard(marked: [C, D, E, F, G], fingers: [C: 1, D: 2, E: 3, F: 4, G: 5])
+
+    private static func keyboard(_ score: Score) -> Keyboard {
+        var keyboard = score.names ? fiveFingerKeyboard : readingKeyboard
+        keyboard.score = score
+        return keyboard
+    }
+
+    /// Tocar llegint, sense pols. No hi pot haver silencis.
+    private static func read(_ text: String, _ tones: [Tone], rounds: Int = 2, names: Bool = false, clef: Bool = true, bars: Bool = false) -> Step {
+        let score = Score(tones: tones, clef: clef, names: names, bars: bars)
+        let goals = tones.map { Goal(accept: .named(Music.pitchClass($0.midi)), label: Music.name($0.midi), key: names ? $0.midi : nil) }
+        return .play(text: text, goals: goals, rounds: rounds, keyboard: keyboard(score), distinct: false)
+    }
+
+    static let stage3 = Stage(
+        id: 3,
+        title: "Llegir",
+        summary: "El pentagrama, la clau de sol i les cinc notes escrites",
+        lessons: [cincRatlles, clauDeSol, doReMiEscrits, faSolEscrits, dibuix, figures, compas, melodiaNova, lluna]
+    )
+
+    // 16
+    static let cincRatlles = Lesson(
+        id: "3-ratlles", number: 16,
+        title: "Les cinc ratlles",
+        summary: "On s'escriu la música",
+        minutes: 3,
+        steps: [
+            .look(text: "La música s'escriu sobre cinc ratlles. Es compten de baix a dalt: la primera és la de sota i la cinquena, la de dalt.",
+                  picture: .staff(Score(clef: false, numbered: true))),
+            .look(text: "Les notes són boletes. Una pot anar sobre una ratlla, que la travessa pel mig, o en un espai, entre dues ratlles.",
+                  picture: .staff(Score(tones: tones([E, F, G, A, B]), clef: false))),
+            .look(text: "Com més amunt està escrita una nota, més aguda sona. Com més avall, més greu.",
+                  picture: .staff(Score(tones: tones([C, D, E, F, G]), clef: false))),
+            .listen(text: "Escolta com puja: cada nota, un graó més amunt.", tones: tones([C, D, E, F, G]), bpm: 66,
+                    keyboard: keyboard(Score(tones: tones([C, D, E, F, G]), clef: false, names: true))),
+            read("Toca-les tu, de do a sol. A sota hi ha el nom de cada una.", tones([C, D, E, F, G]), names: true, clef: false),
+        ]
+    )
+
+    // 17
+    static let clauDeSol = Lesson(
+        id: "3-clau", number: 17,
+        title: "La clau de sol",
+        summary: "El dibuix que diu on és el sol",
+        minutes: 3,
+        steps: [
+            .look(text: "El dibuix que hi ha al començament de les ratlles és la clau de sol. Diu quina nota va a cada ratlla.",
+                  picture: .staff(Score())),
+            .look(text: "El cargol de la clau envolta la segona ratlla. La nota que s'escriu sobre aquesta ratlla és el sol: per això es diu clau de sol.",
+                  picture: .staff(Score(tones: tones([G]), names: true))),
+            .listen(text: "Així sona el sol. El toques amb el dit 5.", tones: [long(G, 2)], bpm: 60,
+                    keyboard: keyboard(Score(tones: tones([G]), names: true))),
+            read("Toca el sol escrit. Tres vegades.", tones([G, G, G]), rounds: 1, names: true),
+            .look(text: "Des del sol es troben les altres. Cada pas cap avall, de ratlla a espai o d'espai a ratlla, és una tecla blanca cap a l'esquerra: el fa i després el mi.",
+                  picture: .staff(Score(tones: tones([G, F, E]), names: true))),
+            read("Baixa del sol al mi i torna a pujar.", tones([G, F, E, F, G]), names: true),
+        ]
+    )
+
+    // 18
+    static let doReMiEscrits = Lesson(
+        id: "3-doremi", number: 18,
+        title: "Do, re i mi escrits",
+        summary: "Les tres notes de més avall",
+        minutes: 4,
+        steps: [
+            .look(text: "El do del mig queda per sota de les cinc ratlles i porta una ratlleta pròpia. El re penja de la primera ratlla. El mi és sobre la primera ratlla.",
+                  picture: .staff(Score(tones: tones([C, D, E]), names: true))),
+            .listen(text: "Do, re, mi. Mira com pugen a mesura que sonen.", tones: tones([C, D, E]), bpm: 66,
+                    keyboard: keyboard(Score(tones: tones([C, D, E]), names: true))),
+            read("Toca do, re, mi mirant les notes escrites.", tones([C, D, E]), names: true),
+            read("Ara sense els noms. Mira on és cada nota.", tones([C, D, E, D, C])),
+            read("I desordenades.", tones([E, C, D, E, C])),
+        ]
+    )
+
+    // 19
+    static let faSolEscrits = Lesson(
+        id: "3-fasol", number: 19,
+        title: "Fa i sol escrits",
+        summary: "Les cinc notes, de do a sol",
+        minutes: 4,
+        steps: [
+            .look(text: "El fa s'escriu al primer espai, entre la primera ratlla i la segona. El sol, ja ho saps, sobre la segona ratlla.",
+                  picture: .staff(Score(tones: tones([F, G]), names: true))),
+            .listen(text: "Les cinc notes, escrites i tocades.", tones: tones([C, D, E, F, G]), bpm: 72,
+                    keyboard: keyboard(Score(tones: tones([C, D, E, F, G]), names: true))),
+            read("Mi, fa, sol, fa, mi.", tones([E, F, G, F, E]), names: true),
+            read("Sense noms: de do a sol.", tones([C, D, E, F, G])),
+            read("I barrejades. No corris.", tones([G, E, F, D, C])),
+        ]
+    )
+
+    // 20
+    static let dibuix = Lesson(
+        id: "3-dibuix", number: 20,
+        title: "Pujar, baixar i repetir",
+        summary: "Llegir el dibuix, no els noms",
+        minutes: 5,
+        steps: [
+            .look(text: "No cal dir el nom de cada nota. Mira el dibuix: si la següent és més amunt, toca el dit següent; si és més avall, l'anterior; si és a la mateixa altura, repeteix.",
+                  picture: .staff(Score(tones: tones([E, E, F, G])))),
+            read("Comença en el mi, amb el dit 3, i segueix el dibuix. La reconeixeràs.", odaA, rounds: 1),
+            .look(text: "De vegades la nota salta: de ratlla a ratlla, o d'espai a espai. Llavors et saltes una tecla i un dit.",
+                  picture: .staff(Score(tones: tones([C, E, G])))),
+            read("De ratlla en ratlla: dits 1, 3 i 5.", tones([C, E, G, E, C])),
+            read("D'espai en espai, i acaba en el mi.", tones([D, F, D, F, E])),
+            read("Passos i salts barrejats.", tones([C, D, E, C, E, G, F, D, C]), rounds: 1),
+        ]
+    )
+
+    // 21
+    private static let figuresExemple: [Tone] = tones([E, E]) + [long(E, 2), long(E, 4)]
+    private static let figuresBarreja: [Tone] = tones([C, C]) + pair(D, D) + tones([E]) + [Tone(midi: E), .rest(), long(C, 2)]
+
+    static let figures = Lesson(
+        id: "3-figures", number: 21,
+        title: "Llargues i curtes, escrites",
+        summary: "La forma de la nota diu quant dura",
+        minutes: 5,
+        steps: [
+            .look(text: "La forma de la nota diu quant dura. Negra i amb pal, un cop: és la negra. Blanca i amb pal, dos cops: la blanca. Blanca i sense pal, quatre cops: la rodona.",
+                  picture: .staff(Score(tones: [Tone(midi: E), long(E, 2), long(E, 4)], counts: true))),
+            .listen(text: "Dues negres, una blanca i una rodona.", tones: figuresExemple, bpm: 63,
+                    keyboard: keyboard(Score(tones: figuresExemple, counts: true)), pulse: true),
+            .rhythm(text: "Toca-ho llegint. A sota hi ha els cops de cada nota.", tones: figuresExemple, bpm: 63, rounds: 2,
+                    keyboard: keyboard(Score(tones: figuresExemple, counts: true))),
+            .look(text: "La que porta un ganxo al pal dura mig cop: és la corxera. Dues corxeres fan un cop.",
+                  picture: .staff(Score(tones: pair(E, E) + tones([E]), counts: true))),
+            .look(text: "I el silenci d'un cop s'escriu amb aquest senyal.",
+                  picture: .staff(Score(tones: [Tone(midi: E), .rest(), Tone(midi: E), .rest()], counts: true))),
+            .rhythm(text: "Tot junt, i sense els números.", tones: figuresBarreja, bpm: 63, rounds: 2,
+                    keyboard: keyboard(Score(tones: figuresBarreja))),
+        ]
+    )
+
+    // 22
+    private static let compasA: [Tone] = tones([C, D, E, F]) + [long(G, 2), long(E, 2)] + tones([F, F, E, E]) + [long(D, 2), long(C, 2)]
+    private static let compasB: [Tone] = [long(E, 2), long(G, 2)] + tones([F, E]) + [long(D, 2)] + tones([C, D, E, F]) + [long(E, 4)]
+
+    static let compas = Lesson(
+        id: "3-compas", number: 22,
+        title: "El compàs",
+        summary: "Les ratlles verticals i els dos quatres",
+        minutes: 5,
+        steps: [
+            .look(text: "Les ratlles verticals parteixen la música en compassos. Els dos quatres del començament diuen que a cada compàs hi caben quatre cops.",
+                  picture: .staff(Score(tones: Array(compasA.prefix(6)), bars: true))),
+            .look(text: "Per comptar, torna a començar a cada ratlla vertical: u, dos, tres, quatre. La ratlla doble del final vol dir que s'ha acabat.",
+                  picture: .staff(Score(tones: compasA, bars: true))),
+            .listen(text: "Segueix-la amb la vista mentre sona.", tones: compasA, bpm: 69,
+                    keyboard: keyboard(Score(tones: compasA, bars: true)), pulse: true),
+            .rhythm(text: "Toca-la llegint i comptant.", tones: compasA, bpm: 66, rounds: 1,
+                    keyboard: keyboard(Score(tones: compasA, bars: true))),
+            .rhythm(text: "Aquesta no l'has sentida. Llegeix-la.", tones: compasB, bpm: 66, rounds: 1,
+                    keyboard: keyboard(Score(tones: compasB, bars: true))),
+        ]
+    )
+
+    // 23
+    private static let novaA: [Tone] = tones([E, F, G, E]) + [long(F, 2), long(D, 2)] + tones([E, D, C, D]) + [long(E, 2), long(C, 2)]
+    private static let novaB: [Tone] = tones([G, E, F, D]) + tones([E, C]) + [long(D, 2)] + tones([G, E, F, D]) + tones([E, D]) + [long(C, 2)]
+
+    static let melodiaNova = Lesson(
+        id: "3-nova", number: 23,
+        title: "Una melodia que no has sentit mai",
+        summary: "Llegir sense escoltar abans",
+        minutes: 6,
+        steps: [
+            .look(text: "Ara una melodia que no has sentit mai. Abans de tocar, mira-la: on comença, on puja, on baixa i on hi ha notes llargues.",
+                  picture: .staff(Score(tones: novaA, bars: true))),
+            read("Primer només les notes, sense pols. Comença en el mi.", novaA, rounds: 1, bars: true),
+            .rhythm(text: "Ara amb el pols, comptant.", tones: novaA, bpm: 63, rounds: 1,
+                    keyboard: keyboard(Score(tones: novaA, bars: true))),
+            .listen(text: "Escolta-la: era així?", tones: novaA, bpm: 76,
+                    keyboard: keyboard(Score(tones: novaA, bars: true)), pulse: true),
+            .look(text: "Una altra. Mira-la sencera abans de començar: comença en el sol, amb el dit 5.",
+                  picture: .staff(Score(tones: novaB, bars: true))),
+            .rhythm(text: "Directament amb el pols.", tones: novaB, bpm: 63, rounds: 1,
+                    keyboard: keyboard(Score(tones: novaB, bars: true))),
+        ]
+    )
+
+    // 24
+    private static let llunaA: [Tone] = tones([C, C, C, D]) + [long(E, 2), long(D, 2)]
+    private static let llunaB: [Tone] = tones([C, E, D, D]) + [long(C, 4)]
+    private static let llunaTota: [Tone] = llunaA + llunaB
+
+    static let lluna = Lesson(
+        id: "3-lluna", number: 24,
+        title: "Au clair de la lune",
+        summary: "Una peça llegida, sense sentir-la abans",
+        minutes: 7,
+        steps: [
+            .look(text: "La peça d'aquesta etapa no l'escoltaràs abans: la llegiràs. És el començament d'Au clair de la lune, una cançó francesa molt antiga.",
+                  picture: .staff(Score(tones: llunaTota, bars: true))),
+            read("Els dos primers compassos, només les notes.", llunaA, bars: true),
+            read("Els dos últims.", llunaB, bars: true),
+            .rhythm(text: "Ara sencera, amb el pols.", tones: llunaTota, bpm: 66, rounds: 2,
+                    keyboard: keyboard(Score(tones: llunaTota, bars: true))),
+            .listen(text: "Escolta-la. Ho has llegit bé?", tones: llunaTota, bpm: 84,
+                    keyboard: keyboard(Score(tones: llunaTota, bars: true)), pulse: true),
+            .rhythm(text: "Per acabar, dues vegades seguides i una mica més de pressa.", tones: llunaTota + llunaTota, bpm: 84, rounds: 1,
+                    keyboard: keyboard(Score(tones: llunaTota, bars: true))),
         ],
         isPiece: true
     )

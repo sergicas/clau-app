@@ -123,6 +123,7 @@ struct LessonView: View {
                     stepHeading
                     stepPicture
                     stepText
+                    stepChips
                     stepStatus
                 }
             }
@@ -205,7 +206,15 @@ struct LessonView: View {
         }
     }
 
+    /// La partitura del pas, si n'hi ha.
+    private var stepScore: Score? {
+        if case .look(_, .staff(let score)) = runner.step { return score }
+        return stepKeyboard.score
+    }
+
     private var stepTarget: Int? {
+        // Quan es llegeix sense noms, el teclat no diu quina tecla toca.
+        if let score = stepScore, !score.names { return nil }
         if case .rhythm = runner.step { return runner.rhythmTarget }
         guard case .play(_, let goals, _, _, _) = runner.step, !runner.stepComplete else { return nil }
         return goals[min(runner.goalIndex, goals.count - 1)].key
@@ -242,6 +251,42 @@ struct LessonView: View {
     /// Les notes que cal tocar, una fitxa per a cadascuna.
     @ViewBuilder
     private var stepChips: some View {
+        if let score = stepScore {
+            staff(score)
+        } else {
+            noteChips
+        }
+    }
+
+    /// La partitura, amb la nota que toca ara marcada.
+    private func staff(_ score: Score) -> some View {
+        let count = max(score.tones.count, 1)
+        var current: Int?
+        var done = 0
+        var marks: [RhythmJudge.Mark] = []
+        switch runner.step {
+        case .look:
+            break
+        case .listen:
+            current = runner.soundingIndex.map { $0 % count }
+        case .play:
+            done = runner.stepComplete ? count : runner.goalIndex
+            current = runner.stepComplete ? nil : runner.goalIndex
+        case .rhythm:
+            // Si el ritme repeteix la partitura, s'ensenya la volta en què s'està.
+            let position = runner.rhythmIndex ?? max(runner.marks.count - 1, 0)
+            let lap = position / count
+            marks = Array(runner.marks.dropFirst(lap * count).prefix(count))
+            current = runner.rhythmPhase == .idle ? nil : runner.rhythmIndex.map { $0 % count }
+        }
+        return StaffView(score: score, current: current, done: done, marks: marks, spacing: compact ? 8 : 9.5)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(Theme.card, in: RoundedRectangle(cornerRadius: 16))
+    }
+
+    @ViewBuilder
+    private var noteChips: some View {
         switch runner.step {
         case .play(_, let goals, _, _, _):
             if showsChips(goals) { goalChips(goals) }
@@ -368,6 +413,9 @@ struct LessonView: View {
         switch runner.step {
         case .look(_, .symbol(let name)):
             symbolPicture(name)
+        case .look(_, .staff):
+            // La partitura ja surt amb el text. Apaïsat, al costat hi va el teclat.
+            if compact { KeyboardView(keyboard: .oneOctave) }
         default:
             KeyboardView(keyboard: stepKeyboard, target: stepTarget, sounding: runner.sounding)
         }
