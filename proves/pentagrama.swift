@@ -17,6 +17,8 @@ func renderAll() {
         StaffView(score: Score(tones: barreja), marks: [.hit, .hit, .wrong, .missed, .pending, .pending, .pending, .pending])
         StaffView(score: Score(tones: lluna, bars: true), current: 5)
         StaffView(score: Score(tones: t([G]), names: true), spacing: 8)
+        StaffView(score: Score(tones: t([48, 50, 52, 53, 55]), names: true, bass: true), current: 3, done: 3, spacing: 13)
+        StaffView(score: Score(tones: t([E, D, C, 55, 53, 52]), grand: true), current: 4, done: 4, spacing: 9)
     }
     .padding(16)
     .frame(width: 370)

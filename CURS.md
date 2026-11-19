@@ -90,6 +90,12 @@ Cada etapa acaba amb una peça. Unes 60 lliçons en total.
 31. Llegir les dues claus
 32. **Peça:** una melodia que passa d'una mà a l'altra
 
+> Nota del 19-11-2026: la peça és l'Oda a l'alegria en quatre frases, dues amb cada mà (dreta, esquerra, dreta, esquerra), perquè l'alumne ja la coneix i només ha de concentrar-se en canviar de mà. La mà esquerra fa servir les mateixes cinc notes una octava més greu (do greu a sol greu), amb els dits 5 a 1.
+>
+> A les lliçons de l'esquerra les notes s'exigeixen a la seva octava: tocar el do del mig quan toca el do greu es rebutja amb «és més agut, busca'l més a l'esquerra». El pentagrama de les dues mans reparteix les notes pel do del mig (cap amunt, clau de sol; cap avall, clau de fa). En un ritme només es mira quan comença cada nota, no l'octava.
+>
+> El teclat de les lliçons de les dues mans (do greu a sol del mig, dotze tecles blanques) té les tecles una mica més estretes que fins ara (31 punts en un iPhone). Cal comprovar que es toquen bé.
+
 ### Etapa 5 · Les dues mans (10 lliçons)
 
 33. Una nota llarga a sota i la melodia a sobre

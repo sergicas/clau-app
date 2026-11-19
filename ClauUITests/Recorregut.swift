@@ -228,4 +228,38 @@ final class Recorregut: XCTestCase {
         XCTAssertTrue(app.buttons["Torna-hi"].waitForExistence(timeout: 20))
         capture("n02-l21-resultat")
     }
+
+    /// Etapa 4: captures de la clau de fa i de les dues mans.
+    func testEsquerra() {
+        XCUIDevice.shared.orientation = .portrait
+        launch(instrument: "screen")
+
+        open(lesson: 25)
+        tap("Continua"); capture("e01-l25-mans")
+        tap("Continua"); tap("Ara jo"); capture("e02-l25-toca-dits")
+        tap("Tanca la lliçó")
+
+        open(lesson: 27)
+        capture("e03-l27-clau-de-fa")
+        tap("Continua"); capture("e04-l27-cinc-notes")
+        tap("Tanca la lliçó")
+
+        open(lesson: 28)
+        tap("Continua"); tap("Ara jo"); capture("e05-l28-notes-llargues")
+        tap("Tanca la lliçó")
+
+        open(lesson: 30)
+        capture("e06-l30-dues-mans")
+        tap("Continua"); tap("Continua"); tap("Ara jo")
+        capture("e07-l30-toca-dues-mans")
+        press([64, 62, 60, 55, 53, 52])
+        XCTAssertTrue(app.staticTexts["Molt bé."].waitForExistence(timeout: 3) || app.staticTexts["Bé. Una vegada més."].waitForExistence(timeout: 3), "Tocar mi, re, do, sol, fa, mi no ha comptat a la lliçó 30")
+        tap("Tanca la lliçó")
+
+        open(lesson: 32)
+        capture("e08-l32-peca")
+        tap("Continua"); tap("Ara jo")
+        capture("e09-l32-primer-tros")
+        tap("Tanca la lliçó")
+    }
 }

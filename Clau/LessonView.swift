@@ -292,7 +292,7 @@ struct LessonView: View {
         }
         var beat: Double?
         if case .rhythm = runner.step { beat = runner.rhythmBeat.map(Double.init) }
-        return StaffView(score: score, current: current, done: done, marks: marks, beat: beat, spacing: compact ? 9 : 13)
+        return StaffView(score: score, current: current, done: done, marks: marks, beat: beat, spacing: score.grand ? (compact ? 6.5 : 9) : (compact ? 9 : 13))
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
             .background(Theme.card, in: RoundedRectangle(cornerRadius: 16))

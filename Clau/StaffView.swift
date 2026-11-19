@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Un pentagrama amb clau de sol i notes, dibuixat a mà perquè es vegi igual a tot arreu.
+/// Un pentagrama (o dos, per a les dues mans) amb clau i notes, dibuixat a mà perquè es vegi igual a tot arreu.
 struct StaffView: View {
     let score: Score
     /// Nota que toca ara (posició dins de `score.tones`).
@@ -14,8 +14,8 @@ struct StaffView: View {
     /// Distància entre dues ratlles.
     var spacing: CGFloat = 9.5
 
-    /// Cops (o notes, si no hi ha compassos) que caben en un rengle.
-    private let capacity = 8.0
+    /// Cops (o notes, si no hi ha compassos) que caben en un rengle. Amb dues mans, més, perquè cada rengle ocupa el doble d'alçada.
+    private var capacity: Double { score.grand ? 16 : 8 }
 
     private struct Placed {
         let index: Int
@@ -32,11 +32,33 @@ struct StaffView: View {
         var isLast = false
     }
 
+    /// Un pentagrama dins d'un rengle: quina clau porta i on és la seva ratlla de sota.
+    private struct Staff {
+        let bass: Bool
+        let bottom: CGFloat
+    }
+
     private var s: CGFloat { spacing }
     private var topPad: CGFloat { 2.0 * s }
     private var bottomPad: CGFloat { (score.names || score.counts ? 3.9 : 2.8) * s }
-    private var systemHeight: CGFloat { topPad + 4 * s + bottomPad }
-    private var bottomLine: CGFloat { topPad + 4 * s }
+    /// Espai entre els dos pentagrames de les dues mans.
+    private var gap: CGFloat { 4.2 * s }
+    /// Ratlla de sota del pentagrama de més avall.
+    private var bottomLine: CGFloat { topPad + 4 * s + (score.grand ? gap + 4 * s : 0) }
+    private var systemHeight: CGFloat { bottomLine + bottomPad }
+
+    private var staves: [Staff] {
+        if score.grand {
+            return [Staff(bass: false, bottom: topPad + 4 * s), Staff(bass: true, bottom: bottomLine)]
+        }
+        return [Staff(bass: score.bass, bottom: bottomLine)]
+    }
+
+    /// Amb dues mans, del do del mig cap amunt va la dreta (clau de sol) i cap avall l'esquerra (clau de fa).
+    private func staff(for tone: Tone) -> Staff {
+        guard score.grand, !tone.rest else { return staves[0] }
+        return tone.midi >= 60 ? staves[0] : staves[1]
+    }
 
     private var systems: [System] {
         var result: [System] = []
@@ -71,7 +93,8 @@ struct StaffView: View {
 
     private var accessibilityText: String {
         let notes = score.tones.map { $0.rest ? "silenci" : Music.name($0.midi) }
-        return notes.isEmpty ? "Pentagrama" : "Pentagrama: " + notes.joined(separator: ", ")
+        let name = score.grand ? "Pentagrama de les dues mans" : (score.bass ? "Pentagrama en clau de fa" : "Pentagrama")
+        return notes.isEmpty ? name : name + ": " + notes.joined(separator: ", ")
     }
 
     // MARK: Colors
@@ -91,46 +114,60 @@ struct StaffView: View {
 
     // MARK: Dibuix
 
-    /// Graó de la nota comptant des de la primera ratlla (mi): 0 és la ratlla, 1 l'espai de sobre…
-    private func step(of midi: Int) -> Int {
+    /// Graó de la nota comptant des de la ratlla de sota: 0 és la ratlla, 1 l'espai de sobre…
+    /// En clau de sol la ratlla de sota és el mi; en clau de fa, el sol greu.
+    private func step(of midi: Int, bass: Bool) -> Int {
         let letters = [0, 0, 1, 1, 2, 3, 3, 4, 4, 5, 5, 6]
         let octave = midi / 12 - 1
-        return (octave - 4) * 7 + letters[Music.pitchClass(midi)] - 2
+        let letter = letters[Music.pitchClass(midi)]
+        return bass ? (octave - 2) * 7 + letter - 4 : (octave - 4) * 7 + letter - 2
     }
 
-    private func y(ofStep step: Int) -> CGFloat { bottomLine - CGFloat(step) * s / 2 }
+    private func y(ofStep step: Int, in staff: Staff) -> CGFloat { staff.bottom - CGFloat(step) * s / 2 }
 
     private func draw(_ system: System, in context: inout GraphicsContext, width: CGFloat) {
         let lineColor = Theme.soft
         var left: CGFloat = 0.4 * s
 
-        // Les cinc ratlles, i el número de cadascuna a la primera lliçó.
-        if score.numbered {
+        // El número de cada ratlla, a la primera lliçó.
+        if score.numbered, let only = staves.first {
             for line in 0..<5 {
                 let text = Text("\(line + 1)").font(.system(size: 0.95 * s, weight: .bold)).foregroundColor(Theme.brass)
-                context.draw(text, at: CGPoint(x: 0.9 * s, y: bottomLine - CGFloat(line) * s))
+                context.draw(text, at: CGPoint(x: 0.9 * s, y: only.bottom - CGFloat(line) * s))
             }
             left = 2.2 * s
         }
-        for line in 0..<5 {
-            let lineY = bottomLine - CGFloat(line) * s
-            var path = Path()
-            path.move(to: CGPoint(x: left, y: lineY))
-            path.addLine(to: CGPoint(x: width - 0.2 * s, y: lineY))
-            context.stroke(path, with: .color(lineColor), lineWidth: max(1, s * 0.09))
+        for staff in staves {
+            for line in 0..<5 {
+                let lineY = staff.bottom - CGFloat(line) * s
+                var path = Path()
+                path.move(to: CGPoint(x: left, y: lineY))
+                path.addLine(to: CGPoint(x: width - 0.2 * s, y: lineY))
+                context.stroke(path, with: .color(lineColor), lineWidth: max(1, s * 0.09))
+            }
+        }
+
+        if score.grand {
+            // La ratlla del començament lliga els dos pentagrames.
+            var join = Path()
+            join.move(to: CGPoint(x: left, y: topPad))
+            join.addLine(to: CGPoint(x: left, y: bottomLine))
+            context.stroke(join, with: .color(Theme.ink), lineWidth: max(1.5, s * 0.14))
         }
 
         if score.clef {
-            drawClef(in: &context, x: left + 0.3 * s)
+            for staff in staves { drawClef(for: staff, in: &context, x: left + 0.3 * s) }
             left += 3.5 * s
         } else {
             left += 0.8 * s
         }
 
         if score.bars, system.isFirst {
-            for (number, line) in [(4, 3), (4, 1)] {
-                let text = Text("\(number)").font(.system(size: 2.5 * s, weight: .bold, design: .serif)).foregroundColor(Theme.ink)
-                context.draw(text, at: CGPoint(x: left + 0.6 * s, y: bottomLine - CGFloat(line) * s))
+            for staff in staves {
+                for line in [3, 1] {
+                    let text = Text("4").font(.system(size: 2.5 * s, weight: .bold, design: .serif)).foregroundColor(Theme.ink)
+                    context.draw(text, at: CGPoint(x: left + 0.6 * s, y: staff.bottom - CGFloat(line) * s))
+                }
             }
             left += 2.0 * s
         }
@@ -143,19 +180,21 @@ struct StaffView: View {
             let slot = CGFloat(note.size / total) * room
             let x = left + CGFloat(note.start / total) * room + min(slot * 0.5, 1.7 * s)
             let tint = color(for: note.index)
+            let home = staff(for: note.tone)
 
             if score.bars, note.start > 0, note.start.truncatingRemainder(dividingBy: 4) == 0 {
                 barline(in: &context, x: left + CGFloat(note.start / total) * room - 0.1 * s, width: max(1, s * 0.11))
             }
 
             if note.tone.rest {
-                drawRest(note.tone.beats, in: &context, x: x, color: tint)
+                drawRest(note.tone.beats, in: &context, x: x, color: tint, staff: home)
             } else {
                 if note.index == current {
-                    let halo = CGRect(x: x - 1.5 * s, y: y(ofStep: step(of: note.tone.midi)) - 1.5 * s, width: 3 * s, height: 3 * s)
+                    let center = y(ofStep: step(of: note.tone.midi, bass: home.bass), in: home)
+                    let halo = CGRect(x: x - 1.5 * s, y: center - 1.5 * s, width: 3 * s, height: 3 * s)
                     context.fill(Path(ellipseIn: halo), with: .color(Theme.brass.opacity(0.22)))
                 }
-                drawNote(note.tone, in: &context, x: x, color: tint)
+                drawNote(note.tone, in: &context, x: x, color: tint, staff: home)
             }
 
             var caption: String?
@@ -209,33 +248,40 @@ struct StaffView: View {
 
     private func barline(in context: inout GraphicsContext, x: CGFloat, width: CGFloat) {
         var path = Path()
-        path.move(to: CGPoint(x: x, y: bottomLine - 4 * s))
+        path.move(to: CGPoint(x: x, y: topPad))
         path.addLine(to: CGPoint(x: x, y: bottomLine))
         context.stroke(path, with: .color(Theme.ink), lineWidth: width)
     }
 
-    /// La clau de sol surt de la lletra «Apple Symbols». El cargol queda centrat a la segona ratlla.
-    private func drawClef(in context: inout GraphicsContext, x: CGFloat) {
-        let fontSize = s * 9.1
-        let text = context.resolve(Text("\u{1D11E}").font(.custom("Apple Symbols", size: fontSize)).foregroundColor(Theme.ink))
+    /// Les claus surten de la lletra «Apple Symbols» del sistema, centrades sobre la seva ratlla:
+    /// la clau de sol envolta la segona ratlla (el sol) i la de fa, la quarta (el fa).
+    private func drawClef(for staff: Staff, in context: inout GraphicsContext, x: CGFloat) {
+        let fontSize = s * (staff.bass ? 5.2 : 9.1)
+        let symbol = staff.bass ? "\u{1D122}" : "\u{1D11E}"
+        let text = context.resolve(Text(symbol).font(.custom("Apple Symbols", size: fontSize)).foregroundColor(Theme.ink))
         let box = CGSize(width: fontSize * 2, height: fontSize * 3)
         let baseline = text.firstBaseline(in: box)
-        // El centre del cargol és 0,19 vegades la mida de la lletra per sobre de la línia de base.
-        let baselineY = (bottomLine - s) + 0.19 * fontSize
-        context.draw(text, at: CGPoint(x: x, y: baselineY - baseline), anchor: .topLeading)
+        // Alçada, sobre la línia de base de la lletra, del centre de la ratlla que envolta la clau.
+        let centerLine = staff.bass ? staff.bottom - 3 * s : staff.bottom - s
+        let rise = (staff.bass ? 0.454 : 0.19) * fontSize
+        context.draw(text, at: CGPoint(x: x, y: centerLine + rise - baseline), anchor: .topLeading)
     }
 
-    private func drawNote(_ tone: Tone, in context: inout GraphicsContext, x: CGFloat, color: Color) {
-        let position = step(of: tone.midi)
-        let centerY = y(ofStep: position)
+    private func drawNote(_ tone: Tone, in context: inout GraphicsContext, x: CGFloat, color: Color, staff: Staff) {
+        let position = step(of: tone.midi, bass: staff.bass)
+        let centerY = y(ofStep: position, in: staff)
         let rx = 0.64 * s, ry = 0.44 * s
 
-        // El do del mig porta una ratlleta pròpia.
-        if position <= -2 {
-            var ledger = Path()
-            ledger.move(to: CGPoint(x: x - 1.1 * s, y: y(ofStep: -2)))
-            ledger.addLine(to: CGPoint(x: x + 1.1 * s, y: y(ofStep: -2)))
-            context.stroke(ledger, with: .color(Theme.soft), lineWidth: max(1, s * 0.09))
+        // Fora de les cinc ratlles, la nota porta ratlletes pròpies.
+        var ledgers: [Int] = []
+        if position <= -2 { ledgers = Array(stride(from: -2, through: position, by: -2)) }
+        if position >= 10 { ledgers = Array(stride(from: 10, through: position, by: 2)) }
+        for ledger in ledgers {
+            var path = Path()
+            let ledgerY = y(ofStep: ledger, in: staff)
+            path.move(to: CGPoint(x: x - 1.1 * s, y: ledgerY))
+            path.addLine(to: CGPoint(x: x + 1.1 * s, y: ledgerY))
+            context.stroke(path, with: .color(Theme.soft), lineWidth: max(1, s * 0.09))
         }
 
         let transform = CGAffineTransform(translationX: x, y: centerY).rotated(by: -0.38)
@@ -272,8 +318,8 @@ struct StaffView: View {
         }
     }
 
-    private func drawRest(_ beats: Double, in context: inout GraphicsContext, x: CGFloat, color: Color) {
-        let middle = bottomLine - 2 * s
+    private func drawRest(_ beats: Double, in context: inout GraphicsContext, x: CGFloat, color: Color, staff: Staff) {
+        let middle = staff.bottom - 2 * s
         if beats >= 4 {
             context.fill(Path(CGRect(x: x - 0.65 * s, y: middle - s, width: 1.3 * s, height: 0.5 * s)), with: .color(color))
         } else if beats >= 2 {

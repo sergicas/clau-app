@@ -66,6 +66,10 @@ struct Score: Equatable {
     var numbered = false
     /// Amb compassos: ratlles verticals, els dos quatres i les notes repartides segons el que duren.
     var bars = false
+    /// Clau de fa, per a la mà esquerra.
+    var bass = false
+    /// Els dos pentagrames de les dues mans: del do del mig cap amunt, la clau de sol; cap avall, la de fa.
+    var grand = false
 }
 
 /// El teclat dibuixat que acompanya un pas.
@@ -136,11 +140,10 @@ struct Stage: Identifiable, Equatable {
 // MARK: - Contingut
 
 enum Course {
-    static let stages: [Stage] = [stage1, stage2, stage3]
+    static let stages: [Stage] = [stage1, stage2, stage3, stage4]
 
     /// Etapes que encara no hi són, per ensenyar el camí.
     static let upcoming: [(title: String, summary: String)] = [
-        ("La mà esquerra", "La clau de fa i melodies amb l'esquerra"),
         ("Les dues mans", "Baix i melodia, mans juntes"),
         ("Sortir dels cinc dits", "El pas del polze, l'escala i les tecles negres"),
         ("Acords", "Do, fa i sol, menors i acompanyar"),
@@ -743,6 +746,229 @@ enum Course {
                     keyboard: keyboard(Score(tones: llunaTota, bars: true)), pulse: true),
             .rhythm(text: "Per acabar, dues vegades seguides i una mica més de pressa.", tones: llunaTota + llunaTota, bpm: 84, rounds: 1,
                     keyboard: keyboard(Score(tones: llunaTota, bars: true))),
+        ],
+        isPiece: true
+    )
+
+    // MARK: Etapa 4 · La mà esquerra
+
+    private static let lC = 48, lD = 50, lE = 52, lF = 53, lG = 55
+
+    /// Els dits de la mà esquerra: el petit al do greu i el polze al sol, al revés que la dreta.
+    private static let leftFingers: [Int: Int] = [lC: 5, lD: 4, lE: 3, lF: 2, lG: 1]
+    private static let leftNames: [Int: String] = [lC: "do", lD: "re", lE: "mi", lF: "fa", lG: "sol"]
+    private static let leftNamed = Keyboard(low: 48, high: 59, marked: [lC, lD, lE, lF, lG], names: leftNames, fingers: leftFingers)
+    private static let leftPlain = Keyboard(low: 48, high: 59, marked: [lC, lD, lE, lF, lG], fingers: leftFingers)
+    /// Les dues mans col·locades: la dreta sobre el do del mig i l'esquerra una octava més avall.
+    private static let bothHands = Keyboard(
+        low: 48, high: 67,
+        marked: [lC, lD, lE, lF, lG, C, D, E, F, G],
+        fingers: leftFingers.merging([C: 1, D: 2, E: 3, F: 4, G: 5]) { $1 }
+    )
+
+    private static func leftKeyboard(_ score: Score) -> Keyboard {
+        var keyboard = score.names ? leftNamed : leftPlain
+        keyboard.score = score
+        return keyboard
+    }
+
+    private static func handsKeyboard(_ score: Score) -> Keyboard {
+        var keyboard = bothHands
+        keyboard.score = score
+        return keyboard
+    }
+
+    /// La mateixa melodia, una octava més greu.
+    private static func down(_ tones: [Tone]) -> [Tone] {
+        tones.map { Tone(midi: $0.midi - 12, beats: $0.beats, rest: $0.rest) }
+    }
+
+    /// Notes amb el seu lloc exacte: a la mà esquerra importa quina octava, no només quina nota.
+    private static func exactGoals(_ midis: [Int], keys: Bool = true) -> [Goal] {
+        midis.map { Goal(accept: .exact($0), label: Music.name($0), key: keys ? $0 : nil) }
+    }
+
+    /// Tocar llegint, sense pols, amb la mà esquerra (clau de fa) o amb les dues (els dos pentagrames).
+    private static func readHands(_ text: String, _ tones: [Tone], rounds: Int = 2, names: Bool = false,
+                                  bars: Bool = false, both: Bool = false) -> Step {
+        let score = Score(tones: tones, clef: true, names: names, bars: bars, bass: !both, grand: both)
+        let keyboard = both ? handsKeyboard(score) : leftKeyboard(score)
+        let goals = exactGoals(tones.map(\.midi), keys: names)
+        return .play(text: text, goals: goals, rounds: rounds, keyboard: keyboard, distinct: false)
+    }
+
+    static let stage4 = Stage(
+        id: 4,
+        title: "La mà esquerra",
+        summary: "Els mateixos dits al revés, la clau de fa i passar d'una mà a l'altra",
+        lessons: [esquerra, esquerraDosSol, clauDeFa, esquerraLlargues, esquerraMelodia, canviarDeMa, duesClaus, odaDuesMans]
+    )
+
+    // 25
+    static let esquerra = Lesson(
+        id: "4-esquerra", number: 25,
+        title: "La mà esquerra",
+        summary: "Els mateixos dits, però al revés",
+        minutes: 3,
+        steps: [
+            .look(text: "La mà esquerra té els mateixos dits numerats: el polze és l'1 i el petit el 5. Però sobre el teclat van al revés: el petit queda a l'esquerra i el polze a la dreta.",
+                  picture: .symbol("hand.raised.fingers.spread.fill")),
+            .look(text: "Posa el petit (dit 5) de la mà esquerra sobre el do que queda una octava més avall del do del mig, i un dit a cada tecla blanca. El polze (dit 1) queda sobre el sol.",
+                  picture: .keyboard(leftNamed)),
+            .listen(text: "Aquestes són les cinc notes de la mà esquerra. Són les mateixes que a la dreta, però més greus.",
+                    tones: tones([lC, lD, lE, lF, lG]), bpm: 72, keyboard: leftNamed),
+            .play("Sense moure la mà de lloc, toca amb el dit que et demano.",
+                  [Goal(accept: .exact(lC), label: "dit 5", key: lC), Goal(accept: .exact(lE), label: "dit 3", key: lE), Goal(accept: .exact(lG), label: "dit 1", key: lG)],
+                  rounds: 2, keyboard: Keyboard(low: 48, high: 59, fingers: leftFingers)),
+            .play("Ara els dos que falten.",
+                  [Goal(accept: .exact(lD), label: "dit 4", key: lD), Goal(accept: .exact(lF), label: "dit 2", key: lF)],
+                  rounds: 2, keyboard: Keyboard(low: 48, high: 59, fingers: leftFingers)),
+        ]
+    )
+
+    // 26
+    static let esquerraDosSol = Lesson(
+        id: "4-dosol", number: 26,
+        title: "Do a sol amb l'esquerra",
+        summary: "Pujar i baixar amb els dits 5, 4, 3, 2 i 1",
+        minutes: 4,
+        steps: [
+            .look(text: "Amb la mà esquerra pugem igual que amb la dreta, però comptant els dits al revés: 5, 4, 3, 2, 1. Les notes són les mateixes, una octava més greu.",
+                  picture: .keyboard(leftNamed)),
+            .listen(text: "Do, re, mi, fa, sol.", tones: tones([lC, lD, lE, lF, lG]), bpm: 72, keyboard: leftNamed),
+            .play("Puja de do a sol: dits 5, 4, 3, 2 i 1.", exactGoals([lC, lD, lE, lF, lG]), rounds: 2, keyboard: leftNamed),
+            .play("Baixa de sol a do: dits 1, 2, 3, 4 i 5.", exactGoals([lG, lF, lE, lD, lC]), rounds: 2, keyboard: leftNamed),
+            .listen(text: "Pujar i baixar d'una tirada.", tones: tones([lC, lD, lE, lF, lG, lF, lE, lD, lC]), bpm: 80, keyboard: leftNamed),
+            .play("Puja i baixa sense aturar-te.", exactGoals([lC, lD, lE, lF, lG, lF, lE, lD, lC]), rounds: 2, keyboard: leftNamed),
+        ]
+    )
+
+    // 27
+    static let clauDeFa = Lesson(
+        id: "4-clau-fa", number: 27,
+        title: "La clau de fa",
+        summary: "La clau de la mà esquerra",
+        minutes: 4,
+        steps: [
+            .look(text: "La música de la mà esquerra s'escriu sovint amb una altra clau: la clau de fa. Els dos punts envolten la quarta ratlla, i aquesta és la ratlla del fa.",
+                  picture: .staff(Score(tones: tones([lF]), names: true, bass: true))),
+            .look(text: "Aquí les ratlles tenen uns altres noms que en clau de sol, però les notes pugen igual: com més amunt, més aguda. Aquestes són les cinc notes de la mà esquerra.",
+                  picture: .staff(Score(tones: tones([lC, lD, lE, lF, lG]), names: true, bass: true))),
+            .listen(text: "Mira-les mentre sonen.", tones: tones([lC, lD, lE, lF, lG]), bpm: 66,
+                    keyboard: leftKeyboard(Score(tones: tones([lC, lD, lE, lF, lG]), names: true, bass: true))),
+            readHands("Toca-les mirant la partitura. A sota hi ha el nom de cada una.", [lC, lD, lE, lF, lG].map { Tone(midi: $0) }, names: true),
+            readHands("Ara sense els noms: del sol cap avall.", [lG, lF, lE, lD, lC].map { Tone(midi: $0) }),
+            readHands("I desordenades. Mira on és cada nota.", [lE, lC, lD, lG, lF].map { Tone(midi: $0) }),
+        ]
+    )
+
+    // 28
+    private static let baseA: [Tone] = [long(lC, 4), long(lG, 4)]
+    private static let baseB: [Tone] = [long(lC, 2), long(lG, 2), long(lC, 2), Tone(midi: lF), Tone(midi: lE)]
+
+    static let esquerraLlargues = Lesson(
+        id: "4-llargues", number: 28,
+        title: "Notes llargues a l'esquerra",
+        summary: "La mà esquerra fa de base",
+        minutes: 5,
+        steps: [
+            .look(text: "Sovint la mà esquerra toca notes llargues, que fan de base mentre la dreta fa la melodia. S'aguanten la tecla i es compta fins que els punts de sota s'han encès tots.",
+                  picture: .staff(Score(tones: baseA, counts: true, bass: true))),
+            .listen(text: "Dues rodones: un do de quatre cops i un sol de quatre cops.", tones: baseA, bpm: 66,
+                    keyboard: leftKeyboard(Score(tones: baseA, counts: true, bass: true)), pulse: true),
+            .rhythm(text: "Toca el do i aguanta'l quatre cops. Després, el sol.", tones: baseA, bpm: 66, rounds: 2,
+                    keyboard: leftKeyboard(Score(tones: baseA, counts: true, bass: true))),
+            .listen(text: "Ara amb dues blanques i dues negres que baixen al final.", tones: baseB, bpm: 66,
+                    keyboard: leftKeyboard(Score(tones: baseB, counts: true, bass: true)), pulse: true),
+            .rhythm(text: "Do i sol, de dos cops cadascun; un altre do; i després fa i mi d'un cop.", tones: baseB, bpm: 66, rounds: 2,
+                    keyboard: leftKeyboard(Score(tones: baseB, counts: true, bass: true))),
+            .rhythm(text: "Ara sense els punts: només amb el que veus escrit.", tones: baseB, bpm: 66, rounds: 1,
+                    keyboard: leftKeyboard(Score(tones: baseB, bass: true))),
+        ]
+    )
+
+    // 29
+    private static let odaLowA = down(odaA), odaLowB = down(odaB), odaLowD = down(odaD)
+
+    static let esquerraMelodia = Lesson(
+        id: "4-melodia", number: 29,
+        title: "Una melodia amb l'esquerra",
+        summary: "L'Oda a l'alegria, una octava més greu",
+        minutes: 6,
+        steps: [
+            .look(text: "Ja coneixes l'Oda a l'alegria. Aquesta vegada la toques amb la mà esquerra, una octava més greu. Comença pel mi, amb el dit 3.",
+                  picture: .staff(Score(tones: odaLowA, bass: true))),
+            .listen(text: "Primer tros.", tones: odaLowA, bpm: 80, keyboard: leftKeyboard(Score(tones: odaLowA, bass: true))),
+            readHands("Toca el primer tros.", odaLowA, rounds: 2),
+            .listen(text: "Segon tros. Comença en el do, amb el dit 5.", tones: odaLowB, bpm: 80, keyboard: leftKeyboard(Score(tones: odaLowB, bass: true))),
+            readHands("Toca el segon tros.", odaLowB, rounds: 2),
+            readHands("Els dos trossos seguits, sense pressa.", odaLowA + odaLowB, rounds: 1),
+        ]
+    )
+
+    // 30
+    private static let changeA: [Int] = [E, D, C, lG, lF, lE]
+    private static let changeB: [Int] = [lE, lF, lG, C, D, E]
+    private static let changeC: [Int] = [C, lC, D, lD, E, lE]
+
+    static let canviarDeMa = Lesson(
+        id: "4-canviar", number: 30,
+        title: "Canviar de mà",
+        summary: "Una nota amb la dreta, la següent amb l'esquerra",
+        minutes: 6,
+        steps: [
+            .look(text: "Quan la música té dues claus, la dreta toca les notes del pentagrama de dalt (clau de sol) i l'esquerra les del de sota (clau de fa). Els dos pentagrames es llegeixen alhora.",
+                  picture: .staff(Score(tones: tones(changeA), grand: true))),
+            .look(text: "Posa les dues mans: la dreta amb el polze sobre el do del mig i l'esquerra amb el petit sobre el do que queda una octava més avall.",
+                  picture: .keyboard(bothHands)),
+            .listen(text: "Baixa de mi a mi: la dreta fa les tres primeres i l'esquerra continua.", tones: tones(changeA), bpm: 66,
+                    keyboard: handsKeyboard(Score(tones: tones(changeA), grand: true))),
+            readHands("Toca-les. Les tres primeres amb la dreta i les altres tres amb l'esquerra.", tones(changeA), rounds: 2, both: true),
+            readHands("Ara a l'inrevés: primer l'esquerra, després la dreta.", tones(changeB), rounds: 2, both: true),
+            readHands("Una nota a cada mà, alternant.", tones(changeC), rounds: 2, both: true),
+        ]
+    )
+
+    // 31
+    private static let claus1: [Int] = [lC, lE, lG, C, E, G]
+    private static let claus2: [Int] = [G, E, C, lG, lE, lC]
+    private static let claus3: [Int] = [E, lG, D, lF, C, lE]
+    private static let claus4: [Int] = [C, E, G, E, lG, lE, lC, lE]
+
+    static let duesClaus = Lesson(
+        id: "4-claus", number: 31,
+        title: "Llegir les dues claus",
+        summary: "El pentagrama de dalt i el de sota",
+        minutes: 6,
+        steps: [
+            .look(text: "Com més amunt s'escriu una nota, més aguda sona, passi o no d'un pentagrama a l'altre. Les notes del pentagrama de sota són més greus que les del de dalt.",
+                  picture: .staff(Score(tones: tones(claus1), grand: true))),
+            .look(text: "El do del mig és el pont entre les dues claus. S'escriu amb una ratlleta pròpia, just sota el pentagrama de dalt, i normalment el toca la dreta.",
+                  picture: .staff(Score(tones: tones([lG, C]), names: true, grand: true))),
+            readHands("Toca-les mirant on són escrites. A sota hi ha el nom.", tones(claus1), rounds: 2, names: true, both: true),
+            readHands("Ara a l'inrevés, i sense els noms.", tones(claus2), rounds: 2, both: true),
+            readHands("Barrejades: mira a quin pentagrama és cada nota.", tones(claus3), rounds: 2, both: true),
+            readHands("Una de més llarga.", tones(claus4), rounds: 1, both: true),
+        ]
+    )
+
+    // 32
+    private static let odaMix: [Tone] = odaA + odaLowB + odaA + odaLowD
+
+    static let odaDuesMans = Lesson(
+        id: "4-oda", number: 32,
+        title: "Oda a l'alegria, mà amb mà",
+        summary: "Una frase amb cada mà",
+        minutes: 8,
+        steps: [
+            .look(text: "L'Oda a l'alegria, un cop més. Ara passa d'una mà a l'altra: la dreta fa les frases que pugen i l'esquerra, les que baixen fins al do. Mira on és escrita cada una.",
+                  picture: .staff(Score(tones: odaMix, bars: true, grand: true))),
+            .listen(text: "Escolta-la sencera.", tones: odaMix, bpm: 92,
+                    keyboard: handsKeyboard(Score(tones: odaMix, bars: true, grand: true))),
+            readHands("Primer tros: la dreta, a dalt.", odaA, rounds: 2, both: true),
+            readHands("Segon tros: ara l'esquerra, a sota.", odaLowB, rounds: 2, both: true),
+            readHands("El tercer tros és igual que el primer, amb la dreta. El quart s'assembla al segon i acaba en el do.", odaLowD, rounds: 2, both: true),
+            readHands("Ara tota sencera, passant d'una mà a l'altra.", odaMix, rounds: 1, bars: true, both: true),
         ],
         isPiece: true
     )

@@ -21,7 +21,7 @@ struct KeyboardView: View {
     @State private var pressed: Set<Int> = []
 
     /// Per sota d'aquesta amplada una tecla no es pot tocar bé amb el dit.
-    private let narrowest: CGFloat = 34
+    private let narrowest: CGFloat = 30
     private let pagerHeight: CGFloat = 44
 
     private var allWhites: Int { (keyboard.low...keyboard.high).filter { !Music.isBlack($0) }.count }
