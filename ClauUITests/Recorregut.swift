@@ -210,4 +210,22 @@ final class Recorregut: XCTestCase {
         tap("Continua"); capture("g13-l24-apaisat-llegeix")
         XCUIDevice.shared.orientation = .portrait
     }
+
+    /// Una tecla aguantada molta estona, mentre la pantalla es va redibuixant amb el pols, ha de comptar una sola vegada.
+    func testNotaLlarga() {
+        XCUIDevice.shared.orientation = .portrait
+        launch(instrument: "screen")
+        open(lesson: 21)
+        tap("Continua"); tap("Ara jo")
+        tap("Comença")
+        let key = app.buttons["tecla-64"].firstMatch
+        XCTAssertTrue(key.waitForExistence(timeout: 5))
+        key.press(forDuration: 5)
+        capture("n01-l21-nota-aguantada")
+        XCTAssertTrue(app.staticTexts["premudes 1"].waitForExistence(timeout: 3), "Un sol dit aguantat ha comptat més d'una vegada, o cap")
+        key.tap(); key.tap()
+        XCTAssertTrue(app.staticTexts["premudes 3"].waitForExistence(timeout: 3), "Dos tocs més haurien de fer tres premudes")
+        XCTAssertTrue(app.buttons["Torna-hi"].waitForExistence(timeout: 20))
+        capture("n02-l21-resultat")
+    }
 }

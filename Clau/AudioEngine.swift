@@ -20,7 +20,8 @@ final class AudioEngine: ObservableObject {
     private var wantsMicrophone = false
 
     // Veus que sonen (exemples). Les toca el fil d'àudio; cal pany.
-    private struct Voice { let tone: PianoTone; let startSample: Int64 }
+    private struct Voice { var tone: PianoTone; let startSample: Int64; var id = 0 }
+    private var nextVoice = 1
     private var voices: [Voice] = []
     private var renderSample: Int64 = 0
     private var voiceLock = os_unfair_lock_s()
@@ -127,6 +128,34 @@ final class AudioEngine: ObservableObject {
         voices.append(Voice(tone: tone, startSample: renderSample))
         os_unfair_lock_unlock(&voiceLock)
         muteUntil = max(muteUntil, CACurrentMediaTime() + tone.totalDuration + 0.35)
+    }
+
+    /// Comença una nota que sona mentre s'aguanta la tecla (fins que s'apaga sola). Retorna amb què aturar-la.
+    func noteOn(midi: Int, gain: Float = 0.32) -> Int {
+        let tone = PianoTone(frequency: Music.frequency(midi), duration: 5, gain: gain)
+        os_unfair_lock_lock(&voiceLock)
+        let id = nextVoice
+        nextVoice += 1
+        voices.append(Voice(tone: tone, startSample: renderSample, id: id))
+        os_unfair_lock_unlock(&voiceLock)
+        return id
+    }
+
+    /// Deixa anar una nota començada amb `noteOn`. Una nota molt curta encara se sent.
+    func noteOff(_ id: Int) {
+        os_unfair_lock_lock(&voiceLock)
+        if let index = voices.firstIndex(where: { $0.id == id }) {
+            let voice = voices[index]
+            let elapsed = Double(renderSample - voice.startSample) / outputRate
+            voices[index].tone = PianoTone(frequency: voice.tone.frequency, duration: max(elapsed, 0.22), gain: voice.tone.gain)
+        }
+        os_unfair_lock_unlock(&voiceLock)
+    }
+
+    /// El que triga el so a sortir de l'aparell: poc per l'altaveu, força amb auriculars sense fil.
+    var outputDelay: Double {
+        let session = AVAudioSession.sharedInstance()
+        return session.outputLatency + session.ioBufferDuration
     }
 
     /// Un cop del pols: curt i sec. El primer de cada quatre sona més agut.

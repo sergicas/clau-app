@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// Teclat dibuixat. Sense `onPress` només ensenya on és cada tecla; amb `onPress` es pot tocar.
 struct KeyboardView: View {
@@ -7,8 +8,10 @@ struct KeyboardView: View {
     var target: Int?
     /// Tecla que sona a l'exemple.
     var sounding: Int?
-    /// Si hi és, cada tecla respon al dit.
-    var onPress: ((Int) -> Void)?
+    /// Si hi és, cada tecla respon al dit. Rep la tecla i el moment exacte en què el dit l'ha tocada.
+    var onPress: ((Int, TimeInterval) -> Void)?
+    /// El dit ha deixat anar la tecla.
+    var onRelease: ((Int) -> Void)?
     /// Omple l'espai que li donen en lloc de mantenir la proporció d'un teclat.
     var fills = false
     /// Si les tecles queden massa estretes per tocar-les, ensenya una octava i deixa passar a les altres.
@@ -71,6 +74,14 @@ struct KeyboardView: View {
             }
         }
         .frame(width: size.width, height: max(size.height, 0), alignment: .topLeading)
+        .overlay {
+            if let onPress {
+                // Tots els tocs passen per una sola superfície: cada dit que baixa compta una vegada,
+                // encara que la pantalla es redibuixi mentre s'aguanta la tecla.
+                KeyTouchSurface(whites: whites, blacks: blacks, onDown: onPress, onUp: { onRelease?($0) }, onHeld: { pressed = $0 })
+                    .accessibilityHidden(true)
+            }
+        }
     }
 
     @ViewBuilder
@@ -79,20 +90,11 @@ struct KeyboardView: View {
             key
         } else {
             key
-                .contentShape(Rectangle())
-                .gesture(
-                    DragGesture(minimumDistance: 0)
-                        .onChanged { _ in
-                            guard !pressed.contains(midi) else { return }
-                            pressed.insert(midi)
-                            onPress?(midi)
-                        }
-                        .onEnded { _ in pressed.remove(midi) }
-                )
                 .accessibilityElement()
                 .accessibilityLabel(Music.name(midi))
                 .accessibilityAddTraits(.isButton)
                 .accessibilityIdentifier("tecla-\(midi)")
+                .accessibilityAction { onPress?(midi, ProcessInfo.processInfo.systemUptime) }
         }
     }
 
@@ -169,5 +171,75 @@ private struct TrailingIcon: LabelStyle {
             configuration.title
             configuration.icon
         }
+    }
+}
+
+/// Rep els dits directament de UIKit: sap quan baixa cada un, amb el seu instant, i quan s'aixeca.
+private struct KeyTouchSurface: UIViewRepresentable {
+    let whites: [Int]
+    let blacks: [Int]
+    let onDown: (Int, TimeInterval) -> Void
+    let onUp: (Int) -> Void
+    let onHeld: (Set<Int>) -> Void
+
+    func makeUIView(context: Context) -> KeyTouchView {
+        let view = KeyTouchView()
+        view.isMultipleTouchEnabled = true
+        view.backgroundColor = .clear
+        return view
+    }
+
+    func updateUIView(_ view: KeyTouchView, context: Context) {
+        view.whites = whites
+        view.blacks = blacks
+        view.onDown = onDown
+        view.onUp = onUp
+        view.onHeld = onHeld
+    }
+}
+
+final class KeyTouchView: UIView {
+    var whites: [Int] = []
+    var blacks: [Int] = []
+    var onDown: ((Int, TimeInterval) -> Void)?
+    var onUp: ((Int) -> Void)?
+    var onHeld: ((Set<Int>) -> Void)?
+
+    /// Quina tecla aguanta cada dit.
+    private var held: [ObjectIdentifier: Int] = [:]
+
+    /// La mateixa geometria amb què es dibuixen les tecles.
+    private func key(at point: CGPoint) -> Int? {
+        guard !whites.isEmpty, bounds.width > 0 else { return nil }
+        let whiteWidth = bounds.width / CGFloat(whites.count)
+        let blackWidth = whiteWidth * 0.62
+        if point.y <= bounds.height * 0.6 {
+            for black in blacks {
+                let left = CGFloat(whites.filter { $0 < black }.count) * whiteWidth - blackWidth / 2
+                if point.x >= left, point.x < left + blackWidth { return black }
+            }
+        }
+        let index = Int(point.x / whiteWidth)
+        return whites.indices.contains(index) ? whites[index] : nil
+    }
+
+    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
+        for touch in touches {
+            guard let midi = key(at: touch.location(in: self)) else { continue }
+            held[ObjectIdentifier(touch)] = midi
+            onDown?(midi, touch.timestamp)
+        }
+        onHeld?(Set(held.values))
+    }
+
+    override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) { lift(touches) }
+    override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) { lift(touches) }
+
+    private func lift(_ touches: Set<UITouch>) {
+        for touch in touches {
+            guard let midi = held.removeValue(forKey: ObjectIdentifier(touch)) else { continue }
+            if !held.values.contains(midi) { onUp?(midi) }
+        }
+        onHeld?(Set(held.values))
     }
 }

@@ -45,6 +45,11 @@ final class LessonRunner: ObservableObject {
     /// El micròfon triga una mica a reconèixer una nota.
     private let microphoneDelay = 0.12
 
+    /// Vegades que s'ha tocat una tecla de la pantalla. Les proves hi miren que un dit compti una sola vegada.
+    @Published private(set) var pressCount = 0
+    /// Notes que sonen perquè s'aguanta la tecla.
+    private var heldVoices: [Int: Int] = [:]
+
     private var used: Set<Int> = []
     private var playback: Task<Void, Never>?
     private var advancing: Task<Void, Never>?
@@ -69,6 +74,7 @@ final class LessonRunner: ObservableObject {
         playback?.cancel()
         advancing?.cancel()
         rhythmTask?.cancel()
+        heldVoices = [:]
         audio?.stopPlaying()
         audio?.setListening(false)
         audio?.onNote = nil
@@ -80,6 +86,7 @@ final class LessonRunner: ObservableObject {
         playback?.cancel()
         advancing?.cancel()
         rhythmTask?.cancel()
+        heldVoices = [:]
         audio?.stopPlaying()
         audio?.setListening(false)
         sounding = nil
@@ -124,10 +131,17 @@ final class LessonRunner: ObservableObject {
     // MARK: Teclat de la pantalla
 
     /// L'alumne ha tocat una tecla del teclat dibuixat: sona i, si és un pas de tocar, compta.
-    func keyPressed(_ midi: Int) {
-        audio?.play(midi: midi, seconds: 0.9)
+    /// `time` és l'instant en què el dit ha tocat la pantalla.
+    func keyPressed(_ midi: Int, at time: TimeInterval? = nil) {
+        if let previous = heldVoices.removeValue(forKey: midi) { audio?.noteOff(previous) }
+        if let audio { heldVoices[midi] = audio.noteOn(midi: midi) }
+        pressCount += 1
         guard instrument == .screen, !isPlaying else { return }
-        heard(midi)
+        heard(midi, at: time)
+    }
+
+    func keyReleased(_ midi: Int) {
+        if let voice = heldVoices.removeValue(forKey: midi) { audio?.noteOff(voice) }
     }
 
     // MARK: Escoltar
@@ -182,7 +196,8 @@ final class LessonRunner: ObservableObject {
 
     private static func sleep(until time: CFTimeInterval) async {
         let wait = time - CACurrentMediaTime()
-        if wait > 0 { try? await Task.sleep(for: .seconds(wait)) }
+        // Sense marge: el pols ha de sonar al seu moment, no «més o menys».
+        if wait > 0 { try? await Task.sleep(for: .seconds(wait), tolerance: .zero) }
     }
 
     // MARK: Tocar a temps
@@ -229,11 +244,12 @@ final class LessonRunner: ObservableObject {
         }
     }
 
-    private func heardInRhythm(_ midi: Int) {
+    private func heardInRhythm(_ midi: Int, at moment: TimeInterval?) {
         guard rhythmPhase != .idle, var judge else { return }
         let beatLength: Double
         if case .rhythm(_, _, let bpm, _, _) = step { beatLength = 60 / bpm } else { return }
-        var time = CACurrentMediaTime() - patternStart
+        // El dit es compara amb el pols tal com se sent, que surt una mica més tard del que s'ha demanat.
+        var time = (moment ?? CACurrentMediaTime()) - patternStart - (audio?.outputDelay ?? 0)
         if instrument == .real { time -= microphoneDelay }
         // Mentre es compta no es jutja res, tret de qui entra massa aviat.
         guard time > -0.5 * beatLength else { return }
@@ -288,9 +304,9 @@ final class LessonRunner: ObservableObject {
 
     // MARK: Tocar
 
-    private func heard(_ midi: Int) {
+    private func heard(_ midi: Int, at moment: TimeInterval? = nil) {
         if case .rhythm = step {
-            heardInRhythm(midi)
+            heardInRhythm(midi, at: moment)
             return
         }
         guard case .play(_, let goals, let rounds, _, let distinct) = step, !stepComplete, !finished else { return }

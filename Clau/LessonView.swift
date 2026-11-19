@@ -34,6 +34,16 @@ struct LessonView: View {
             }
         }
         .background(Theme.paper.ignoresSafeArea())
+        .overlay(alignment: .topTrailing) {
+            // Només a les proves: quantes vegades ha comptat una tecla.
+            if ClauApp.isTest {
+                Text("premudes \(runner.pressCount)")
+                    .font(.caption2)
+                    .foregroundStyle(Theme.soft)
+                    .padding(.trailing, 60)
+                    .accessibilityIdentifier("premudes")
+            }
+        }
         .onAppear {
             UIApplication.shared.isIdleTimerDisabled = true
             runner.begin(audio: audio)
@@ -177,7 +187,8 @@ struct LessonView: View {
             keyboard: stepKeyboard,
             target: stepTarget,
             sounding: runner.sounding,
-            onPress: { runner.keyPressed($0) },
+            onPress: { runner.keyPressed($0, at: $1) },
+            onRelease: { runner.keyReleased($0) },
             fills: true,
             pages: isPlayStep
         )
