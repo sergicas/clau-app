@@ -279,7 +279,7 @@ struct LessonView: View {
             marks = Array(runner.marks.dropFirst(lap * count).prefix(count))
             current = runner.rhythmPhase == .idle ? nil : runner.rhythmIndex.map { $0 % count }
         }
-        return StaffView(score: score, current: current, done: done, marks: marks, spacing: compact ? 8 : 9.5)
+        return StaffView(score: score, current: current, done: done, marks: marks, spacing: compact ? 9 : 13)
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
             .background(Theme.card, in: RoundedRectangle(cornerRadius: 16))

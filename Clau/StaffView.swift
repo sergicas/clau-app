@@ -32,7 +32,7 @@ struct StaffView: View {
 
     private var s: CGFloat { spacing }
     private var topPad: CGFloat { 2.0 * s }
-    private var bottomPad: CGFloat { (score.names || score.counts ? 3.9 : 2.2) * s }
+    private var bottomPad: CGFloat { (score.names || score.counts ? 3.9 : 2.8) * s }
     private var systemHeight: CGFloat { topPad + 4 * s + bottomPad }
     private var bottomLine: CGFloat { topPad + 4 * s }
 
