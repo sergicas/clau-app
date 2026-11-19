@@ -7,6 +7,7 @@ struct RhythmJudge {
 
     private struct Note {
         let time: Double
+        let beats: Double
         let pitchClass: Int
         /// Posició dins la llista de `tones`, comptant-hi els silencis.
         let toneIndex: Int
@@ -28,6 +29,10 @@ struct RhythmJudge {
     private var late = 0
     private var strays = 0
     private var firstWrong: (heard: Int, wanted: Int)?
+    /// Tot el que s'ha tocat, per poder explicar què ha passat.
+    private var presses: [(midi: Int, time: Double, result: String)] = []
+    /// La primera nota llarga que no s'ha esperat prou: quina és i quants cops dura.
+    private var cutShort: (note: Int, beats: Double)?
 
     /// `slack` afegeix marge, per quan les notes arriben pel micròfon.
     init(tones: [Tone], beat: Double, slack: Double = 0) {
@@ -35,7 +40,7 @@ struct RhythmJudge {
         var notes: [Note] = []
         for (index, tone) in tones.enumerated() {
             if !tone.rest {
-                notes.append(Note(time: time, pitchClass: Music.pitchClass(tone.midi), toneIndex: index))
+                notes.append(Note(time: time, beats: tone.beats, pitchClass: Music.pitchClass(tone.midi), toneIndex: index))
             }
             time += tone.beats * beat
         }
@@ -71,6 +76,7 @@ struct RhythmJudge {
         guard let index = nearest else {
             extras += 1
             strays += 1
+            presses.append((midi, time, "de més"))
             return nil
         }
 
@@ -81,9 +87,15 @@ struct RhythmJudge {
                 marks[index] = .wrong
                 if firstWrong == nil { firstWrong = (midi, notes[index].pitchClass) }
             }
+            presses.append((midi, time, marks[index] == .hit ? "nota \(index + 1)" : "nota \(index + 1), tecla equivocada"))
             return marks[index]
         }
 
+        presses.append((midi, time, "fora de temps, a prop de la nota \(index + 1)"))
+        // Si la nota d'abans era llarga i s'ha tocat la següent abans d'hora, és que no s'ha esperat.
+        if cutShort == nil, time < notes[index].time, index > 0, notes[index - 1].beats >= 2, marks[index - 1] == .hit {
+            cutShort = (index, notes[index - 1].beats)
+        }
         extras += 1
         if distance < 0.5 * beat {
             if time < notes[index].time { early += 1 } else { late += 1 }
@@ -120,10 +132,35 @@ struct RhythmJudge {
     /// En un ritme curt han de sortir totes; en un de llarg es perdona una nota de cada vuit.
     var passed: Bool { errors <= notes.count / 8 }
 
+    /// Si s'han tocat totes les notes amb el ritme bo però totes desplaçades igual, quant (en cops).
+    private var wholeShift: Double? {
+        guard presses.count == notes.count, notes.count > 1 else { return nil }
+        let shifts = zip(presses, notes).map { $0.time - $1.time }
+        let mean = shifts.reduce(0, +) / Double(shifts.count)
+        guard abs(mean) > 0.5 * beat, shifts.allSatisfy({ abs($0 - mean) <= tolerance }) else { return nil }
+        return mean / beat
+    }
+
+    /// Per al registre: què s'esperava i què s'ha tocat, amb els temps en segons.
+    var report: String {
+        let wanted = notes.enumerated().map { "\($0 + 1):\(Music.names[$1.pitchClass])@\(String(format: "%.2f", $1.time))" }.joined(separator: " ")
+        let played = presses.map { "\(Music.name($0.midi))@\(String(format: "%.2f", $0.time)) (\($0.result))" }.joined(separator: "; ")
+        return "cop=\(String(format: "%.3f", beat)) marge=\(String(format: "%.3f", tolerance))\n  esperat: \(wanted)\n  tocat: \(played.isEmpty ? "res" : played)\n  \(passed ? "BÉ" : "MAL: " + verdict)"
+    }
+
     /// Què ha fallat, dit en una frase.
     var verdict: String {
         if missed == notes.count, extras == 0, wrong == 0 {
             return "No he sentit cap nota. Entra just després dels quatre cops."
+        }
+        if let shift = wholeShift {
+            return shift < 0
+                ? "El ritme és bo, però has entrat abans d'hora. Espera que acabin els quatre cops."
+                : "El ritme és bo, però has entrat tard. La primera nota va just després dels quatre cops."
+        }
+        if let cutShort {
+            let beats = Int(cutShort.beats)
+            return "La nota \(cutShort.note) dura \(beats) cops. Aguanta-la fins que hagin passat tots \(beats) i llavors toca la següent."
         }
         if let firstWrong {
             return "Has tocat \(Music.names[Music.pitchClass(firstWrong.heard)]) on anava \(Music.names[firstWrong.wanted])."

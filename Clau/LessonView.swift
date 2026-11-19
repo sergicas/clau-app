@@ -290,7 +290,9 @@ struct LessonView: View {
             marks = Array(runner.marks.dropFirst(lap * count).prefix(count))
             current = runner.rhythmPhase == .idle ? nil : runner.rhythmIndex.map { $0 % count }
         }
-        return StaffView(score: score, current: current, done: done, marks: marks, spacing: compact ? 9 : 13)
+        var beat: Double?
+        if case .rhythm = runner.step { beat = runner.rhythmBeat.map(Double.init) }
+        return StaffView(score: score, current: current, done: done, marks: marks, beat: beat, spacing: compact ? 9 : 13)
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
             .background(Theme.card, in: RoundedRectangle(cornerRadius: 16))
@@ -386,6 +388,8 @@ struct LessonView: View {
         return Flow(spacing: 6) {
             ForEach(Array(tones.enumerated()), id: \.offset) { index, tone in
                 let mark = index < runner.marks.count ? runner.marks[index] : .pending
+                let start = tones.prefix(index).reduce(0) { $0 + $1.beats }
+                let now = runner.rhythmBeat.map { Double($0) >= start && Double($0) < start + tone.beats } ?? false
                 VStack(spacing: 1) {
                     Text(tone.rest ? "–" : Music.name(tone.midi))
                         .font(Theme.serif(small ? .body : .title3, weight: .semibold))
@@ -398,7 +402,8 @@ struct LessonView: View {
                 .padding(.vertical, small ? 3 : 6)
                 .foregroundStyle(mark == .pending ? (tone.rest ? Theme.soft : Theme.ink) : Theme.card)
                 .background(chipFill(mark), in: RoundedRectangle(cornerRadius: 12))
-                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Theme.line, lineWidth: mark == .pending ? 1 : 0))
+                // La vora gruixuda diu per on va el pols: mentre hi és, aquesta nota encara dura.
+                .overlay(RoundedRectangle(cornerRadius: 12).stroke(now ? Theme.brass : Theme.line, lineWidth: now ? 3 : (mark == .pending ? 1 : 0)))
             }
         }
         .accessibilityElement(children: .ignore)

@@ -141,6 +141,18 @@ verify("Notes de mig cop a temps", perform(halves, beat: 1).passed)
 verify("Notes de mig cop: el marge es fa estret", RhythmJudge(tones: halves, beat: 1).tolerance < 0.25)
 verify("Marques: el silenci queda pendent", perform(withRest, beat: 1).toneMarks == [.hit, .hit, .pending, .hit])
 
+// El cas d'en Sergi a la lliçó 21: negra, negra, blanca i rodona, tocant la rodona un cop abans.
+let figures = [Tone(midi: 64), Tone(midi: 64), Tone(midi: 64, beats: 2), Tone(midi: 64, beats: 4)]
+var hurried = RhythmJudge(tones: figures, beat: 1)
+for time in [0.0, 1.0, 2.0, 3.0] { hurried.heard(midi: 64, at: time) }
+hurried.close(upTo: .infinity)
+verify("No esperar una blanca: diu quina nota i quants cops dura", !hurried.passed && hurried.verdict.contains("La nota 3 dura 2 cops"))
+
+let lateEntry = perform(four, beat: 1, offset: 1.0)
+verify("Entrar un cop tard: ho diu", !lateEntry.passed && lateEntry.verdict.contains("has entrat tard"))
+let earlyEntry = perform(four, beat: 1, offset: -1.0)
+verify("Entrar un cop abans: ho diu", !earlyEntry.passed && earlyEntry.verdict.contains("abans d'hora"))
+
 print("Curs")
 for lesson in Course.allLessons {
     for step in lesson.steps {

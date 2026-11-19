@@ -1,5 +1,6 @@
 import Foundation
 import QuartzCore
+import os
 
 /// Porta l'alumne pas a pas per una lliçó.
 @MainActor
@@ -36,6 +37,8 @@ final class LessonRunner: ObservableObject {
     @Published private(set) var marks: [RhythmJudge.Mark] = []
     /// Tecla que toca ara en un ritme.
     @Published private(set) var rhythmTarget: Int?
+    /// Quants cops del ritme han passat (0 al primer). Serveix per ensenyar per on va el pols.
+    @Published private(set) var rhythmBeat: Int?
     /// Posició de la nota que toca ara en un ritme.
     @Published private(set) var rhythmIndex: Int?
 
@@ -114,6 +117,7 @@ final class LessonRunner: ObservableObject {
         judge = nil
         rhythmTarget = nil
         rhythmIndex = nil
+        rhythmBeat = nil
         marks = []
 
         switch step {
@@ -213,6 +217,7 @@ final class LessonRunner: ObservableObject {
         marks = judge.toneMarks
         rhythmTarget = nil
         say("", .neutral)
+        rhythmBeat = nil
         rhythmPhase = .countIn
 
         let origin = CACurrentMediaTime() + 0.5
@@ -233,6 +238,7 @@ final class LessonRunner: ObservableObject {
                     self.showRhythmTarget()
                 }
                 if !counting {
+                    self.rhythmBeat = tick - 4
                     self.rhythmPhase = .playing
                     self.judge?.close(upTo: CACurrentMediaTime() - start)
                     self.refreshRhythm()
@@ -244,6 +250,23 @@ final class LessonRunner: ObservableObject {
         }
     }
 
+    private static let diary = Logger(subsystem: "cat.sergicastillo.clau", category: "ritme")
+
+    /// Registre dels ritmes tocats, per poder mirar què ha passat quan alguna cosa no quadra.
+    /// Es queda a l'aparell (Documents/ritme.txt) i no s'envia enlloc.
+    private static func log(_ text: String) {
+        // Fora de l'app (les proves al Mac) no s'escriu res enlloc.
+        guard Bundle.main.bundleIdentifier != nil else { return }
+        // També al registre del sistema, que al Mac es pot llegir amb l'eina `log`.
+        for line in text.split(separator: "\n") { diary.notice("\(String(line), privacy: .public)") }
+        guard let folder = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else { return }
+        let file = folder.appendingPathComponent("ritme.txt")
+        var all = (try? String(contentsOf: file, encoding: .utf8)) ?? ""
+        if all.count > 60_000 { all = String(all.suffix(30_000)) }
+        all += "\(Date().formatted(date: .numeric, time: .standard)) \(text)\n"
+        try? all.write(to: file, atomically: true, encoding: .utf8)
+    }
+
     private func heardInRhythm(_ midi: Int, at moment: TimeInterval?) {
         guard rhythmPhase != .idle, var judge else { return }
         let beatLength: Double
@@ -251,8 +274,8 @@ final class LessonRunner: ObservableObject {
         // El dit es compara amb el pols tal com se sent, que surt una mica més tard del que s'ha demanat.
         var time = (moment ?? CACurrentMediaTime()) - patternStart - (audio?.outputDelay ?? 0)
         if instrument == .real { time -= microphoneDelay }
-        // Mentre es compta no es jutja res, tret de qui entra massa aviat.
-        guard time > -0.5 * beatLength else { return }
+        // Mentre es compta no es jutja res, tret de qui entra massa aviat: l'últim cop d'entrada ja compta.
+        guard time > -1.5 * beatLength else { return }
         judge.heard(midi: midi, at: time)
         self.judge = judge
         refreshRhythm()
@@ -281,9 +304,12 @@ final class LessonRunner: ObservableObject {
         marks = judge.toneMarks
         rhythmTarget = nil
         rhythmIndex = nil
+        rhythmBeat = nil
         rhythmPhase = .idle
         count = nil
         audio?.setListening(false)
+
+        LessonRunner.log("lliçó \(lesson.number), pas \(stepIndex + 1), \(instrument == .screen ? "pantalla" : "piano"), sortida de so \(String(format: "%.3f", audio?.outputDelay ?? 0)) s\n  \(judge.report)")
 
         guard judge.passed else {
             say(judge.verdict, .wrong)

@@ -13,7 +13,7 @@ func renderAll() {
     let view = VStack(alignment: .leading, spacing: 14) {
         StaffView(score: Score(clef: false, numbered: true))
         StaffView(score: Score(tones: t([C, D, E, F, G]), names: true), current: 2, done: 2)
-        StaffView(score: Score(tones: [Tone(midi: E), Tone(midi: E, beats: 2), Tone(midi: E, beats: 4)], counts: true))
+        StaffView(score: Score(tones: [Tone(midi: E), Tone(midi: E), Tone(midi: E, beats: 2), Tone(midi: E, beats: 4)], counts: true), current: 3, marks: [.hit, .hit, .hit, .pending], beat: 3, spacing: 13)
         StaffView(score: Score(tones: barreja), marks: [.hit, .hit, .wrong, .missed, .pending, .pending, .pending, .pending])
         StaffView(score: Score(tones: lluna, bars: true), current: 5)
         StaffView(score: Score(tones: t([G]), names: true), spacing: 8)

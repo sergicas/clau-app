@@ -9,6 +9,8 @@ struct StaffView: View {
     var done = 0
     /// Com ha anat cada nota en un ritme.
     var marks: [RhythmJudge.Mark] = []
+    /// Quants cops del ritme han passat. Amb `score.counts`, encén els punts de sota les notes.
+    var beat: Double?
     /// Distància entre dues ratlles.
     var spacing: CGFloat = 9.5
 
@@ -158,8 +160,9 @@ struct StaffView: View {
 
             var caption: String?
             if score.names, !note.tone.rest { caption = Music.name(note.tone.midi) }
-            if score.counts { caption = note.tone.beats == 0.5 ? "½" : String(Int(note.tone.beats)) }
-            if let caption {
+            if score.counts {
+                drawPips(for: note.index, in: &context, x: x)
+            } else if let caption {
                 let text = Text(caption).font(.system(size: 1.3 * s, weight: .semibold)).foregroundColor(tint == Theme.ink ? Theme.soft : tint)
                 context.draw(text, at: CGPoint(x: x, y: bottomLine + 2.9 * s))
             }
@@ -172,6 +175,34 @@ struct StaffView: View {
                 barline(in: &context, x: end, width: s * 0.38)
             } else {
                 barline(in: &context, x: end, width: max(1, s * 0.11))
+            }
+        }
+    }
+
+    /// Un punt per cada cop que dura la nota. S'omplen a mesura que passa el pols.
+    private func drawPips(for index: Int, in context: inout GraphicsContext, x: CGFloat) {
+        let tone = score.tones[index]
+        let start = score.tones.prefix(index).reduce(0) { $0 + $1.beats }
+        let half = tone.beats < 1
+        let pips = max(1, Int(tone.beats.rounded(.up)))
+        let radius = (half ? 0.2 : 0.3) * s
+        let gap = 0.85 * s
+        let y = bottomLine + 2.9 * s
+        let first = x - CGFloat(pips - 1) * gap / 2
+        let total = score.tones.reduce(0) { $0 + $1.beats }
+        // Si el ritme repeteix la partitura, es torna a començar.
+        let now = beat.map { total > 0 ? $0.truncatingRemainder(dividingBy: total) : $0 }
+
+        for pip in 0..<pips {
+            let rect = CGRect(x: first + CGFloat(pip) * gap - radius, y: y - radius, width: 2 * radius, height: 2 * radius)
+            let path = Path(ellipseIn: rect)
+            if let now, now >= start + Double(pip), now < start + tone.beats {
+                // El cop que sona ara, i els que ja han passat dins d'aquesta nota.
+                context.fill(path, with: .color(Theme.brass))
+            } else if let now, now >= start + tone.beats {
+                context.fill(path, with: .color(Theme.soft))
+            } else {
+                context.stroke(path, with: .color(Theme.soft), lineWidth: max(1, s * 0.11))
             }
         }
     }
