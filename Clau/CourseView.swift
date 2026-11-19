@@ -3,12 +3,15 @@ import SwiftUI
 struct CourseView: View {
     @EnvironmentObject private var progress: LessonProgress
     @State private var open: Lesson?
+    @AppStorage(Instrument.storageKey) private var instrumentName = Instrument.screen.rawValue
+
+    private var instrument: Instrument { Instrument(rawValue: instrumentName) ?? .screen }
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 26) {
                 title
-                if progress.done.isEmpty { beforeStarting }
+                instrumentPicker
                 if let next = progress.next { continueCard(next) }
                 ForEach(Course.stages) { stage in
                     stageSection(stage)
@@ -23,7 +26,7 @@ struct CourseView: View {
         }
         .background(Theme.paper.ignoresSafeArea())
         .fullScreenCover(item: $open) { lesson in
-            LessonView(lesson: lesson, onClose: { open = nil }, onNext: { open = $0 })
+            LessonView(lesson: lesson, instrument: instrument, onClose: { open = nil }, onNext: { open = $0 })
                 .id(lesson.id)
         }
     }
@@ -33,24 +36,49 @@ struct CourseView: View {
             Text("Clau")
                 .font(.system(size: 52, weight: .semibold, design: .serif))
                 .foregroundStyle(Theme.ink)
-            Text("Piano des de zero, amb un piano al davant.")
+            Text("Piano des de zero, una cosa cada vegada.")
                 .font(Theme.serif(.title3))
                 .foregroundStyle(Theme.soft)
         }
     }
 
-    private var beforeStarting: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Abans de començar")
+    /// Amb què es toca: el teclat de la pantalla o un piano de debò.
+    private var instrumentPicker: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Amb què toques?")
                 .font(Theme.serif(.title3, weight: .semibold))
-            Text("Posa el telèfon al faristol del piano, amb el volum alt. Clau t'ensenyarà una sola cosa cada vegada, la tocarà perquè la sentis i t'escoltarà mentre la toques tu.")
+                .foregroundStyle(Theme.ink)
+            HStack(spacing: 10) {
+                instrumentOption(.screen, title: "La pantalla", symbol: "iphone")
+                instrumentOption(.real, title: "Un piano", symbol: "pianokeys")
+            }
+            Text(instrument == .screen
+                 ? "Toques al teclat dibuixat. Amb el telèfon de costat, les tecles són gairebé tan amples com les d'un piano."
+                 : "Posa el telèfon al faristol, amb el volum alt. Clau t'escolta amb el micròfon mentre toques.")
                 .font(.body)
                 .lineSpacing(3)
+                .foregroundStyle(Theme.ink)
+                .fixedSize(horizontal: false, vertical: true)
         }
-        .foregroundStyle(Theme.ink)
         .padding(18)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Theme.card, in: RoundedRectangle(cornerRadius: 18))
+    }
+
+    private func instrumentOption(_ option: Instrument, title: String, symbol: String) -> some View {
+        let selected = instrument == option
+        return Button {
+            instrumentName = option.rawValue
+        } label: {
+            Label(title, systemImage: symbol)
+                .font(.body.weight(.semibold))
+                .frame(maxWidth: .infinity, minHeight: 48)
+                .foregroundStyle(selected ? Theme.card : Theme.ink)
+                .background(selected ? Theme.ink : Theme.paper, in: RoundedRectangle(cornerRadius: 12))
+                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Theme.ink.opacity(selected ? 0 : 0.3), lineWidth: 1.5))
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(selected ? .isSelected : [])
     }
 
     private func continueCard(_ lesson: Lesson) -> some View {
@@ -144,7 +172,7 @@ struct CourseView: View {
             VStack(alignment: .leading, spacing: 12) {
                 ForEach(Array(Course.upcoming.enumerated()), id: \.offset) { index, stage in
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Etapa \(index + 2) · \(stage.title)")
+                        Text("Etapa \(index + Course.stages.count + 1) · \(stage.title)")
                             .font(Theme.serif(.headline, weight: .semibold))
                         Text(stage.summary).font(.subheadline)
                     }
@@ -155,7 +183,7 @@ struct CourseView: View {
     }
 
     private var privacyNote: some View {
-        Text("Clau fa servir el micròfon només per saber quina nota toques. No grava res i no envia res enlloc.")
+        Text("Si toques amb un piano de debò, Clau fa servir el micròfon només per saber quina nota toques. No grava res i no envia res enlloc.")
             .font(.footnote)
             .foregroundStyle(Theme.soft)
             .padding(.top, 4)

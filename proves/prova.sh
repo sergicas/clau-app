@@ -3,5 +3,5 @@
 set -e
 cd "$(dirname "$0")/.."
 mkdir -p build
-swiftc -O -o build/prova-motor Clau/Music.swift Clau/Pitch.swift proves/main.swift
+swiftc -O -o build/prova-motor Clau/Music.swift Clau/Pitch.swift Clau/Course.swift Clau/Rhythm.swift proves/main.swift
 ./build/prova-motor

@@ -17,6 +17,7 @@
 		6B0D5F7ACFA7F7BFCB0F3182 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 73CFBFEA1644E20A9CACF02D /* Assets.xcassets */; };
 		95E3B0E47CAC3D99CE2D45AD /* App.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38B90A27A2AFDB8EEAB26360 /* App.swift */; };
 		B0DCC04841741CF9F3AC8388 /* Music.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99C74C056F434C57B2B98128 /* Music.swift */; };
+		C222A95B8D1922FC293C65AA /* Rhythm.swift in Sources */ = {isa = PBXBuildFile; fileRef = C731962505E90DDE971FAAE8 /* Rhythm.swift */; };
 		C33B4E67B3B7D5083330A078 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 9F6C7F262ADCB0DD6578A829 /* PrivacyInfo.xcprivacy */; };
 		D66431C16424D08F1AC32A69 /* Course.swift in Sources */ = {isa = PBXBuildFile; fileRef = 665CD06788BB1922C780AAFA /* Course.swift */; };
 		E678ACA1DD11B253E4E286FF /* Recorregut.swift in Sources */ = {isa = PBXBuildFile; fileRef = E09508397FF24C3CC05871EB /* Recorregut.swift */; };
@@ -49,6 +50,7 @@
 		9F6C7F262ADCB0DD6578A829 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		B05DE4C645372C26961D6A76 /* LessonView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LessonView.swift; sourceTree = "<group>"; };
 		B9157441E757955E69B9DF71 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		C731962505E90DDE971FAAE8 /* Rhythm.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Rhythm.swift; sourceTree = "<group>"; };
 		D5336565B91B8C82AF3FC71B /* LessonRunner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LessonRunner.swift; sourceTree = "<group>"; };
 		E09508397FF24C3CC05871EB /* Recorregut.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Recorregut.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -88,6 +90,7 @@
 				99C74C056F434C57B2B98128 /* Music.swift */,
 				0DDF180E1939A9309E0E2843 /* Pitch.swift */,
 				9F6C7F262ADCB0DD6578A829 /* PrivacyInfo.xcprivacy */,
+				C731962505E90DDE971FAAE8 /* Rhythm.swift */,
 				712A8681818AA6A941CB37C4 /* Theme.swift */,
 			);
 			path = Clau;
@@ -207,6 +210,7 @@
 				5B1B71A14E5C37F23368C163 /* LessonView.swift in Sources */,
 				B0DCC04841741CF9F3AC8388 /* Music.swift in Sources */,
 				3BAA7AE6C0D32A2502429D72 /* Pitch.swift in Sources */,
+				C222A95B8D1922FC293C65AA /* Rhythm.swift in Sources */,
 				06919A7207B76F7AF92B96F7 /* Theme.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

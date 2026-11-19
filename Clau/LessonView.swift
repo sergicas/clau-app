@@ -11,28 +11,26 @@ struct LessonView: View {
     @Environment(\.verticalSizeClass) private var verticalSizeClass
     @StateObject private var runner: LessonRunner
 
-    init(lesson: Lesson, onClose: @escaping () -> Void, onNext: @escaping (Lesson) -> Void) {
+    init(lesson: Lesson, instrument: Instrument, onClose: @escaping () -> Void, onNext: @escaping (Lesson) -> Void) {
         self.lesson = lesson
         self.onClose = onClose
         self.onNext = onNext
-        _runner = StateObject(wrappedValue: LessonRunner(lesson: lesson))
+        _runner = StateObject(wrappedValue: LessonRunner(lesson: lesson, instrument: instrument))
     }
+
+    /// Telèfon apaïsat: hi ha poca alçada.
+    private var compact: Bool { verticalSizeClass == .compact }
+    private var onScreen: Bool { runner.instrument == .screen }
 
     var body: some View {
         VStack(spacing: 0) {
             header
             if runner.finished {
                 finishedView
+            } else if onScreen {
+                screenLayout
             } else {
-                ScrollView {
-                    stepContent
-                        .padding(.horizontal, 22)
-                        .padding(.top, 18)
-                        .padding(.bottom, 24)
-                        .frame(maxWidth: verticalSizeClass == .compact ? 900 : 640)
-                        .frame(maxWidth: .infinity)
-                }
-                footer
+                realLayout
             }
         }
         .background(Theme.paper.ignoresSafeArea())
@@ -52,66 +50,165 @@ struct LessonView: View {
     // MARK: Capçalera
 
     private var header: some View {
-        VStack(spacing: 12) {
+        let layout = compact ? AnyLayout(HStackLayout(spacing: 10)) : AnyLayout(VStackLayout(spacing: 12))
+        return layout {
             HStack {
                 Button(action: onClose) {
                     Image(systemName: "xmark")
                         .font(.title3.weight(.semibold))
                         .foregroundStyle(Theme.ink)
-                        .frame(width: 44, height: 44)
+                        .frame(width: 44, height: compact ? 36 : 44)
                 }
                 .accessibilityLabel("Tanca la lliçó")
-                Spacer()
+                if !compact { Spacer() }
                 Text("Lliçó \(lesson.number)")
                     .font(Theme.serif(.headline, weight: .semibold))
                     .foregroundStyle(Theme.soft)
-                Spacer()
-                Color.clear.frame(width: 44, height: 44)
+                    .fixedSize()
+                if !compact {
+                    Spacer()
+                    Color.clear.frame(width: 44, height: 44)
+                }
             }
             HStack(spacing: 5) {
-                ForEach(lesson.steps.indices, id: \.self) { index in
+                ForEach(runner.steps.indices, id: \.self) { index in
                     Capsule()
                         .fill(index < runner.stepIndex || runner.finished ? Theme.ink : (index == runner.stepIndex ? Theme.brass : Theme.line))
                         .frame(height: 5)
                 }
             }
             .accessibilityElement()
-            .accessibilityLabel("Pas \(min(runner.stepIndex + 1, lesson.steps.count)) de \(lesson.steps.count)")
+            .accessibilityLabel("Pas \(min(runner.stepIndex + 1, runner.steps.count)) de \(runner.steps.count)")
         }
         .padding(.horizontal, 14)
-        .padding(.bottom, 10)
+        .padding(.bottom, compact ? 4 : 10)
     }
 
-    // MARK: Passos
+    // MARK: Tocant en un piano de debò
 
-    /// Amb el telèfon apaïsat al faristol hi ha poca alçada: el text va a un costat i el teclat a l'altre.
+    private var realLayout: some View {
+        VStack(spacing: 0) {
+            ScrollView {
+                realContent
+                    .padding(.horizontal, 22)
+                    .padding(.top, 18)
+                    .padding(.bottom, 24)
+                    .frame(maxWidth: compact ? 900 : 640)
+                    .frame(maxWidth: .infinity)
+            }
+            footer
+        }
+    }
+
+    /// Apaïsat al faristol: el text va a un costat i el teclat a l'altre.
     @ViewBuilder
-    private var stepContent: some View {
-        if verticalSizeClass == .compact {
+    private var realContent: some View {
+        if compact {
             HStack(alignment: .top, spacing: 24) {
-                VStack(alignment: .leading, spacing: 14) { stepWords }
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                VStack(alignment: .leading, spacing: 14) {
+                    stepWords
+                    stepStatus
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
                 stepPicture
                     .frame(maxWidth: .infinity)
             }
         } else {
             VStack(alignment: .leading, spacing: 20) {
-                switch runner.step {
-                case .look:
-                    stepHeading
-                    stepPicture
-                    stepText
-                case .listen:
-                    stepHeading
-                    stepPicture
-                    stepText
-                case .play:
+                if isPlayStep {
                     stepWords
                     stepPicture
+                    stepStatus
+                } else {
+                    stepHeading
+                    stepPicture
+                    stepText
                     stepStatus
                 }
             }
         }
+    }
+
+    // MARK: Tocant a la pantalla
+
+    /// El teclat va a baix i ocupa tota l'amplada, perquè les tecles siguin tan grans com es pugui.
+    @ViewBuilder
+    private var screenLayout: some View {
+        if compact {
+            HStack(alignment: .top, spacing: 16) {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 10) {
+                        stepWords
+                        stepStatus
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                VStack(spacing: 8) { footerButtons }
+                    .frame(width: 230)
+            }
+            .padding(.horizontal, 22)
+            .padding(.top, 2)
+            touchKeyboard
+                .frame(height: 178)
+        } else {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    stepHeading
+                    if case .look(_, .symbol(let name)) = runner.step { symbolPicture(name) }
+                    stepText
+                    stepChips
+                    stepStatus
+                }
+                .padding(.horizontal, 22)
+                .padding(.top, 18)
+                .padding(.bottom, 12)
+                .frame(maxWidth: 640, alignment: .leading)
+                .frame(maxWidth: .infinity)
+            }
+            touchKeyboard
+                .frame(height: 240)
+            footer
+        }
+    }
+
+    private var touchKeyboard: some View {
+        KeyboardView(
+            keyboard: stepKeyboard,
+            target: stepTarget,
+            sounding: runner.sounding,
+            onPress: { runner.keyPressed($0) },
+            fills: true,
+            pages: isPlayStep
+        )
+        .id(runner.stepIndex)
+        .padding(.horizontal, 6)
+        .padding(.top, 6)
+    }
+
+    // MARK: Peces d'un pas
+
+    /// Un pas en què toca l'alumne, amb pols o sense.
+    private var isPlayStep: Bool {
+        switch runner.step {
+        case .play, .rhythm: return true
+        default: return false
+        }
+    }
+
+    private var stepKeyboard: Keyboard {
+        switch runner.step {
+        case .look(_, .keyboard(let keyboard)): return keyboard
+        case .look: return .oneOctave
+        case .listen(_, _, _, let keyboard, _): return keyboard
+        case .play(_, _, _, let keyboard, _): return keyboard
+        case .rhythm(_, _, _, _, let keyboard): return keyboard
+        }
+    }
+
+    private var stepTarget: Int? {
+        if case .rhythm = runner.step { return runner.rhythmTarget }
+        guard case .play(_, let goals, _, _, _) = runner.step, !runner.stepComplete else { return nil }
+        return goals[min(runner.goalIndex, goals.count - 1)].key
     }
 
     @ViewBuilder
@@ -120,6 +217,7 @@ struct LessonView: View {
         case .look: stepLabel("Mira", "eye")
         case .listen: stepLabel("Escolta", "ear")
         case .play: stepLabel("Toca", "pianokeys")
+        case .rhythm: stepLabel("Toca a temps", "metronome")
         }
     }
 
@@ -127,41 +225,151 @@ struct LessonView: View {
     private var stepText: some View {
         switch runner.step {
         case .look(let text, _): bodyText(text)
-        case .listen(let text, _, _, _): bodyText(text)
+        case .listen(let text, _, _, _, _): bodyText(text)
         case .play(let text, _, _, _, _): bodyText(text)
+        case .rhythm(let text, _, _, _, _): bodyText(text)
         }
     }
 
-    /// Tot el que es llegeix d'un pas. En vertical, l'estat del micròfon va sota el teclat.
+    /// Tot el que es llegeix d'un pas.
     @ViewBuilder
     private var stepWords: some View {
         stepHeading
         stepText
-        if case .play(_, let goals, _, _, _) = runner.step {
-            if goals.count > 1 || goals.first?.accept != .any {
-                goalChips(goals)
-            }
-            if verticalSizeClass == .compact { stepStatus }
+        stepChips
+    }
+
+    /// Les notes que cal tocar, una fitxa per a cadascuna.
+    @ViewBuilder
+    private var stepChips: some View {
+        switch runner.step {
+        case .play(_, let goals, _, _, _):
+            if showsChips(goals) { goalChips(goals) }
+        case .rhythm(_, let tones, _, _, _):
+            rhythmChips(tones)
+        default:
+            EmptyView()
         }
     }
 
+    private func showsChips(_ goals: [Goal]) -> Bool {
+        goals.count > 1 || goals.first?.accept != .any
+    }
+
+    /// Quantes vegades falten i què ha sentit l'app.
     @ViewBuilder
     private var stepStatus: some View {
-        if case .play(_, _, let rounds, _, _) = runner.step {
+        switch runner.step {
+        case .play(_, _, let rounds, _, _):
             if rounds > 1 { roundDots(rounds) }
-            listeningRow
+            if onScreen { screenStatus } else { listeningRow }
+        case .rhythm(_, _, _, let rounds, _):
+            if compact && onScreen {
+                // Apaïsat hi ha poca alçada: tot en una ratlla, i el missatge en lloc del rètol del pols.
+                HStack(spacing: 14) {
+                    pulseDots
+                    if rounds > 1 { roundDots(rounds) }
+                }
+                if runner.message.isEmpty {
+                    Text(pulseText.isEmpty ? " " : pulseText)
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(Theme.soft)
+                } else {
+                    screenStatus
+                }
+            } else {
+                if rounds > 1 { roundDots(rounds) }
+                pulseRow
+                if onScreen { screenStatus } else { listeningRow }
+            }
+        case .listen(_, _, _, _, let pulse):
+            if pulse { pulseRow }
+        case .look:
+            EmptyView()
         }
+    }
+
+    /// Els quatre cops del compàs; s'encén el que sona.
+    private var pulseRow: some View {
+        HStack(spacing: 10) {
+            pulseDots
+            Text(pulseText)
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(Theme.soft)
+                .padding(.leading, 4)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(pulseText.isEmpty ? "Pols" : pulseText)
+        .accessibilityIdentifier("pols")
+    }
+
+    private var pulseDots: some View {
+        HStack(spacing: 10) {
+            ForEach(1...4, id: \.self) { beat in
+                Circle()
+                    .fill(runner.count == beat ? (beat == 1 ? Theme.terra : Theme.brass) : Theme.line)
+                    .frame(width: compact ? 16 : 22, height: compact ? 16 : 22)
+                    .scaleEffect(runner.count == beat ? 1.25 : 1)
+                    .animation(.easeOut(duration: 0.12), value: runner.count)
+            }
+        }
+        .accessibilityHidden(true)
+    }
+
+    private var pulseText: String {
+        switch runner.rhythmPhase {
+        case .countIn: return "Escolta els quatre cops"
+        case .playing: return "Ara tu"
+        case .idle: return runner.isPlaying && runner.sounding == nil && runner.count != nil ? "Quatre cops abans" : ""
+        }
+    }
+
+    /// Cada nota amb el seu nom i, a sota, quants cops dura.
+    private func rhythmChips(_ tones: [Tone]) -> some View {
+        let small = compact && onScreen
+        return Flow(spacing: 6) {
+            ForEach(Array(tones.enumerated()), id: \.offset) { index, tone in
+                let mark = index < runner.marks.count ? runner.marks[index] : .pending
+                VStack(spacing: 1) {
+                    Text(tone.rest ? "–" : Music.name(tone.midi))
+                        .font(Theme.serif(small ? .body : .title3, weight: .semibold))
+                    Text(beatsLabel(tone.beats))
+                        .font(.caption2.weight(.semibold))
+                        .opacity(0.75)
+                }
+                .frame(minWidth: (small ? 30 : 38) * max(0.75, min(CGFloat(tone.beats), 2.6)))
+                .padding(.horizontal, small ? 5 : 7)
+                .padding(.vertical, small ? 3 : 6)
+                .foregroundStyle(mark == .pending ? (tone.rest ? Theme.soft : Theme.ink) : Theme.card)
+                .background(chipFill(mark), in: RoundedRectangle(cornerRadius: 12))
+                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Theme.line, lineWidth: mark == .pending ? 1 : 0))
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Ritme: " + tones.map { ($0.rest ? "silenci" : Music.name($0.midi)) + " " + beatsLabel($0.beats) }.joined(separator: ", "))
+    }
+
+    private func chipFill(_ mark: RhythmJudge.Mark) -> Color {
+        switch mark {
+        case .pending: return Theme.card
+        case .hit: return Theme.sage
+        case .wrong, .missed: return Theme.terra
+        }
+    }
+
+    private func beatsLabel(_ beats: Double) -> String {
+        if beats == 0.5 { return "½" }
+        if beats == 1.5 { return "1½" }
+        return String(Int(beats))
     }
 
     @ViewBuilder
     private var stepPicture: some View {
         switch runner.step {
-        case .look(_, let picture):
-            pictureView(picture)
-        case .listen(_, _, _, let keyboard):
-            KeyboardView(keyboard: keyboard, sounding: runner.sounding)
-        case .play(_, let goals, _, let keyboard, _):
-            KeyboardView(keyboard: keyboard, target: runner.stepComplete ? nil : goals[min(runner.goalIndex, goals.count - 1)].key)
+        case .look(_, .symbol(let name)):
+            symbolPicture(name)
+        default:
+            KeyboardView(keyboard: stepKeyboard, target: stepTarget, sounding: runner.sounding)
         }
     }
 
@@ -175,26 +383,20 @@ struct LessonView: View {
 
     private func bodyText(_ text: String) -> some View {
         Text(text)
-            .font(Theme.serif(.title2))
+            .font(Theme.serif(compact && onScreen ? .title3 : .title2))
             .foregroundStyle(Theme.ink)
-            .lineSpacing(5)
+            .lineSpacing(compact && onScreen ? 3 : 5)
             .fixedSize(horizontal: false, vertical: true)
     }
 
-    @ViewBuilder
-    private func pictureView(_ picture: Picture) -> some View {
-        switch picture {
-        case .symbol(let name):
-            Image(systemName: name)
-                .font(.system(size: 92))
-                .foregroundStyle(Theme.brass)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 26)
-                .background(Theme.card, in: RoundedRectangle(cornerRadius: 20))
-                .accessibilityHidden(true)
-        case .keyboard(let keyboard):
-            KeyboardView(keyboard: keyboard)
-        }
+    private func symbolPicture(_ name: String) -> some View {
+        Image(systemName: name)
+            .font(.system(size: 92))
+            .foregroundStyle(Theme.brass)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 26)
+            .background(Theme.card, in: RoundedRectangle(cornerRadius: 20))
+            .accessibilityHidden(true)
     }
 
     private func goalChips(_ goals: [Goal]) -> some View {
@@ -203,9 +405,9 @@ struct LessonView: View {
                 let done = index < runner.goalIndex || runner.stepComplete
                 let current = index == runner.goalIndex && !runner.stepComplete
                 Text(goal.label)
-                    .font(Theme.serif(.title3, weight: .semibold))
-                    .padding(.horizontal, 13)
-                    .padding(.vertical, 8)
+                    .font(Theme.serif(compact && onScreen ? .body : .title3, weight: .semibold))
+                    .padding(.horizontal, compact && onScreen ? 10 : 13)
+                    .padding(.vertical, compact && onScreen ? 5 : 8)
                     .foregroundStyle(done ? Theme.card : Theme.ink)
                     .background(done ? Theme.sage : (current ? Theme.brass.opacity(0.35) : Theme.card), in: Capsule())
                     .overlay(Capsule().stroke(current ? Theme.brass : Theme.line, lineWidth: current ? 2 : 1))
@@ -230,6 +432,18 @@ struct LessonView: View {
         .accessibilityLabel("\(runner.round) de \(rounds) vegades")
     }
 
+    /// A la pantalla no cal micròfon: només es diu com va.
+    @ViewBuilder
+    private var screenStatus: some View {
+        if !runner.message.isEmpty {
+            Label(runner.message, systemImage: runner.mood == .wrong ? "arrow.uturn.backward" : "checkmark")
+                .font(.body.weight(.medium))
+                .foregroundStyle(runner.mood == .wrong ? Theme.terra : Theme.sage)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityIdentifier("estat")
+        }
+    }
+
     @ViewBuilder
     private var listeningRow: some View {
         if audio.micState == .denied {
@@ -252,7 +466,7 @@ struct LessonView: View {
                     .font(.title2)
                     .foregroundStyle(runner.stepComplete ? Theme.sage : Theme.ink)
                 VStack(alignment: .leading, spacing: 7) {
-                    Text(statusText)
+                    Text(listeningText)
                         .font(.body.weight(.medium))
                         .foregroundStyle(runner.mood == .wrong ? Theme.terra : Theme.ink)
                         .fixedSize(horizontal: false, vertical: true)
@@ -273,77 +487,109 @@ struct LessonView: View {
         }
     }
 
-    private var statusText: String {
+    private var listeningText: String {
         if !runner.message.isEmpty { return runner.message }
+        if case .rhythm = runner.step {
+            switch runner.rhythmPhase {
+            case .idle: return "Prem «Comença» quan estiguis a punt."
+            case .countIn: return "Encara no. Escolta els quatre cops."
+            case .playing: return "T'escolto."
+            }
+        }
         return runner.goalIndex == 0 && runner.round == 0 ? "T'escolto. Quan vulguis." : "T'escolto."
     }
 
     // MARK: Peu
 
     @ViewBuilder
-    private var footer: some View {
-        let layout = verticalSizeClass == .compact ? AnyLayout(HStackLayout(spacing: 12)) : AnyLayout(VStackLayout(spacing: 10))
-        layout {
-            switch runner.step {
-            case .look:
-                Button("Continua") { runner.advance() }
-                    .buttonStyle(PrimaryButton())
-            case .listen:
+    private var footerButtons: some View {
+        switch runner.step {
+        case .look:
+            Button("Continua") { runner.advance() }
+                .buttonStyle(PrimaryButton())
+        case .listen:
+            Button {
+                runner.playExample()
+            } label: {
+                Label(runner.isPlaying ? "Sonant…" : "Torna-ho a escoltar", systemImage: "play.fill")
+            }
+            .buttonStyle(SecondaryButton())
+            .disabled(runner.isPlaying)
+            Button(nextIsPlay ? "Ara jo" : "Continua") { runner.advance() }
+                .buttonStyle(PrimaryButton())
+        case .play:
+            if !runner.stepComplete {
+                Button(onScreen ? "Salta aquest pas" : "Continua sense comprovar") { runner.advance() }
+                    .font(.body)
+                    .foregroundStyle(Theme.soft)
+                    .frame(minHeight: 44)
+            }
+        case .rhythm:
+            if !runner.stepComplete {
                 Button {
-                    runner.playExample()
+                    runner.startRhythm()
                 } label: {
-                    Label(runner.isPlaying ? "Sonant…" : "Torna-ho a escoltar", systemImage: "play.fill")
+                    Label(rhythmButtonText, systemImage: "metronome")
                 }
-                .buttonStyle(SecondaryButton())
-                .disabled(runner.isPlaying)
-                Button(nextIsPlay ? "Ara jo" : "Continua") { runner.advance() }
-                    .buttonStyle(PrimaryButton())
-            case .play:
-                if !runner.stepComplete {
-                    Button("Continua sense comprovar") { runner.advance() }
-                        .font(.body)
-                        .foregroundStyle(Theme.soft)
-                        .frame(minHeight: 44)
-                }
+                .buttonStyle(PrimaryButton())
+                .disabled(runner.rhythmPhase != .idle)
+                Button(onScreen ? "Salta aquest pas" : "Continua sense comprovar") { runner.advance() }
+                    .font(.body)
+                    .foregroundStyle(Theme.soft)
+                    .frame(minHeight: 44)
             }
         }
-        .padding(.horizontal, 22)
-        .padding(.top, verticalSizeClass == .compact ? 4 : 10)
-        .padding(.bottom, verticalSizeClass == .compact ? 6 : 14)
-        .frame(maxWidth: verticalSizeClass == .compact ? 900 : 640)
-        .frame(maxWidth: .infinity)
-        .background(Theme.paper)
+    }
+
+    private var rhythmButtonText: String {
+        if runner.rhythmPhase != .idle { return "Sonant…" }
+        return runner.mood == .wrong ? "Torna-hi" : "Comença"
+    }
+
+    private var footer: some View {
+        let layout = compact ? AnyLayout(HStackLayout(spacing: 12)) : AnyLayout(VStackLayout(spacing: 10))
+        return layout { footerButtons }
+            .padding(.horizontal, 22)
+            .padding(.top, compact ? 4 : 10)
+            .padding(.bottom, compact ? 6 : 14)
+            .frame(maxWidth: compact ? 900 : 640)
+            .frame(maxWidth: .infinity)
+            .background(Theme.paper)
     }
 
     private var nextIsPlay: Bool {
         let next = runner.stepIndex + 1
-        guard next < lesson.steps.count, case .play = lesson.steps[next] else { return false }
-        return true
+        guard next < runner.steps.count else { return false }
+        switch runner.steps[next] {
+        case .play, .rhythm: return true
+        default: return false
+        }
     }
 
     // MARK: Final
 
     private var finishedView: some View {
-        VStack(spacing: 22) {
+        VStack(spacing: compact ? 10 : 22) {
             Spacer()
             Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 76))
+                .font(.system(size: compact ? 48 : 76))
                 .foregroundStyle(Theme.sage)
                 .accessibilityHidden(true)
-            Text(lesson.isPiece ? "Has tocat la teva primera peça." : "Lliçó acabada.")
-                .font(Theme.serif(.largeTitle, weight: .semibold))
+            Text(lesson.isPiece ? (lesson.number == 8 ? "Has tocat la teva primera peça." : "Has tocat la peça sencera.") : "Lliçó acabada.")
+                .font(Theme.serif(compact ? .title : .largeTitle, weight: .semibold))
                 .foregroundStyle(Theme.ink)
                 .multilineTextAlignment(.center)
             Text(lesson.title)
                 .font(Theme.serif(.title3))
                 .foregroundStyle(Theme.soft)
             Spacer()
-            VStack(spacing: 10) {
+            let layout = compact ? AnyLayout(HStackLayout(spacing: 12)) : AnyLayout(VStackLayout(spacing: 10))
+            layout {
                 if let next = Course.lesson(after: lesson) {
-                    Button("Següent: \(next.title)") { onNext(next) }
-                        .buttonStyle(PrimaryButton())
                     Button("Torna al curs", action: onClose)
                         .buttonStyle(SecondaryButton())
+                    Button("Següent: \(next.title)") { onNext(next) }
+                        .buttonStyle(PrimaryButton())
                 } else {
                     Button("Torna al curs", action: onClose)
                         .buttonStyle(PrimaryButton())
@@ -352,7 +598,7 @@ struct LessonView: View {
         }
         .padding(.horizontal, 22)
         .padding(.bottom, 14)
-        .frame(maxWidth: 640)
+        .frame(maxWidth: compact ? 900 : 640)
         .frame(maxWidth: .infinity)
     }
 }

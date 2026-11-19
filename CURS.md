@@ -12,8 +12,8 @@ Clau és una app per aprendre a tocar el piano des de zero, amb un piano o tecla
 |---|---|
 | Per a qui és | Per a qui comença de zero |
 | Com són les primeres lliçons | Breus, perquè el que s'hi explica és molt elemental |
-| On toca l'alumne | En un piano o teclat real |
-| Com sap l'app si ho fa bé | Escolta amb el micròfon |
+| On toca l'alumne | En un piano o teclat real. Des del 18-11, també al teclat de la pantalla, perquè no calgui tenir piano |
+| Com sap l'app si ho fa bé | Amb piano de debò, escolta amb el micròfon. A la pantalla, sap quina tecla s'ha tocat |
 | Fins on arriba | Un curs llarg, fins a llegir partitura i tocar acords |
 
 ## Què promet i què no
@@ -55,7 +55,13 @@ Cada etapa acaba amb una peça. Unes 60 lliçons en total.
 12. El silenci també compta
 13. Dues notes per pulsació
 14. La mateixa melodia, lenta i de pressa
-15. **Peça:** Germà Jaume, amb el seu ritme
+15. **Peça:** Jingle Bells, amb el seu ritme
+
+> Canvi del 19-11-2026, pendent del vistiplau d'en Sergi: el pla deia Germà Jaume, però no es pot tocar sense moure la mà (baixa fins a un sol greu i puja fins al la, nou notes; l'alumne només en té cinc, de do a sol). Jingle Bells hi cap sencera i fa servir tot el que s'ha après a l'etapa: notes d'un cop, de dos, de quatre i de mig cop. Canviar de peça és tocar una sola lliçó a `Course.swift`.
+>
+> A l'etapa 2 no es fan servir els noms «negra» i «blanca» per a les notes, perquè a l'etapa 1 volen dir tecles. Es diu «un cop», «dos cops», «mig cop»; els noms arriben a l'etapa 3, quan es veuen escrites.
+>
+> Com es comprova el ritme: l'app compta quatre cops i després mira que cada nota caigui al seu cop, amb marge ample. Amb el teclat de la pantalla el pols sona tota l'estona. Amb un piano de debò el pols només sona als quatre cops d'entrada i després es veu a la pantalla, sense so, perquè el micròfon no el confongui amb una nota. No es comprova quanta estona s'aguanta una nota, només quan comença.
 
 ### Etapa 3 · Llegir (9 lliçons)
 

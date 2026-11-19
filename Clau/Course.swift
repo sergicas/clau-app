@@ -2,10 +2,24 @@ import Foundation
 
 // MARK: - Model
 
+/// Amb què toca l'alumne.
+enum Instrument: String {
+    /// El teclat que hi ha dibuixat a la pantalla.
+    case screen
+    /// Un piano o teclat de debò; l'app escolta amb el micròfon.
+    case real
+
+    static let storageKey = "instrument"
+}
+
 /// Una nota d'un exemple: quina i quants temps dura.
 struct Tone: Equatable {
     let midi: Int
     var beats: Double = 1
+    /// Un silenci: dura, però no sona.
+    var rest = false
+
+    static func rest(_ beats: Double = 1) -> Tone { Tone(midi: 60, beats: beats, rest: true) }
 }
 
 /// Què ha de tocar l'alumne perquè un pas compti.
@@ -64,9 +78,13 @@ enum Step: Equatable {
     /// Mira: una idea i un dibuix.
     case look(text: String, picture: Picture)
     /// Escolta: l'app toca.
-    case listen(text: String, tones: [Tone], bpm: Double, keyboard: Keyboard)
+    /// Amb `pulse`, sonen quatre cops abans i el pols segueix durant l'exemple.
+    case listen(text: String, tones: [Tone], bpm: Double, keyboard: Keyboard, pulse: Bool = false)
     /// Toca: l'alumne toca i l'app escolta. `distinct` vol dir que no val repetir la mateixa tecla.
     case play(text: String, goals: [Goal], rounds: Int, keyboard: Keyboard, distinct: Bool)
+
+    /// Toca a temps: l'app marca el pols i mira que cada nota caigui al seu cop.
+    case rhythm(text: String, tones: [Tone], bpm: Double, rounds: Int, keyboard: Keyboard)
 
     static func play(_ text: String, _ goals: [Goal], rounds: Int = 3, keyboard: Keyboard = .oneOctave, distinct: Bool = false) -> Step {
         .play(text: text, goals: goals, rounds: rounds, keyboard: keyboard, distinct: distinct)
@@ -83,6 +101,12 @@ struct Lesson: Identifiable, Equatable {
     let steps: [Step]
     /// Les peces tenen un tracte diferent a la llista.
     var isPiece = false
+    /// Passos diferents per a qui toca a la pantalla, quan el text d'un piano de debò no hi escau.
+    var screenSteps: [Step]?
+
+    func steps(for instrument: Instrument) -> [Step] {
+        instrument == .screen ? (screenSteps ?? steps) : steps
+    }
 }
 
 struct Stage: Identifiable, Equatable {
@@ -95,11 +119,10 @@ struct Stage: Identifiable, Equatable {
 // MARK: - Contingut
 
 enum Course {
-    static let stages: [Stage] = [stage1]
+    static let stages: [Stage] = [stage1, stage2]
 
     /// Etapes que encara no hi són, per ensenyar el camí.
     static let upcoming: [(title: String, summary: String)] = [
-        ("El pols", "Notes llargues i curtes, comptar i silencis"),
         ("Llegir", "El pentagrama i la clau de sol"),
         ("La mà esquerra", "La clau de fa i melodies amb l'esquerra"),
         ("Les dues mans", "Baix i melodia, mans juntes"),
@@ -150,6 +173,16 @@ enum Course {
                   picture: .keyboard(.oneOctave)),
             .play("Deixa caure la mà sobre una tecla, la que vulguis. Tres vegades.",
                   [Goal(accept: .any, label: "una tecla")]),
+        ],
+        screenSteps: [
+            .look(text: "Deixa el telèfon pla sobre una taula i gira'l de costat. Així les tecles són gairebé tan amples com les d'un piano.",
+                  picture: .symbol("rectangle.landscape.rotate")),
+            .look(text: "Deixa penjar el braç al costat del cos i mira't la mà: queda arrodonida, com si agafés una taronja. Aquesta és la forma.",
+                  picture: .symbol("hand.raised.fill")),
+            .look(text: "Posa la mà sobre el teclat sense canviar-li la forma. Es toca amb la punta del dit, no amb el dit pla.",
+                  picture: .keyboard(.oneOctave)),
+            .play("Toca una tecla, la que vulguis. Tres vegades.",
+                  [Goal(accept: .any, label: "una tecla")]),
         ]
     )
 
@@ -189,27 +222,32 @@ enum Course {
         ]
     )
 
+    private static func totsElsDosSteps(middleText: String) -> [Step] {
+        [
+        .look(text: "Hi ha un do a cada grup de dues negres. Tots es diuen do: els de l'esquerra sonen greus i els de la dreta, aguts.",
+              picture: .keyboard(Keyboard(low: 48, high: 83, marked: [48, 60, 72], names: [48: "do", 60: "do", 72: "do"]))),
+        .listen(text: "Tres dos, del més greu al més agut.",
+                tones: [Tone(midi: 48, beats: 2), Tone(midi: 60, beats: 2), Tone(midi: 72, beats: 2)], bpm: 72,
+                keyboard: Keyboard(low: 48, high: 83, names: [48: "do", 60: "do", 72: "do"])),
+        .play("Toca tres dos diferents, començant per l'esquerra.",
+              [Goal(accept: .named(0), label: "do"), Goal(accept: .named(0), label: "do"), Goal(accept: .named(0), label: "do")],
+              rounds: 1, keyboard: Keyboard(low: 48, high: 83, marked: [48, 60, 72]), distinct: true),
+        .look(text: middleText,
+              picture: .keyboard(Keyboard(low: 48, high: 83, marked: [60], names: [60: "do"]))),
+        .play("Toca el do del mig. Tres vegades.",
+              [Goal(accept: .exact(C), label: "do del mig", key: C)],
+              keyboard: Keyboard(low: 48, high: 83)),
+        ]
+    }
+
     // 4
     static let totsElsDos = Lesson(
         id: "1-dos", number: 4,
         title: "Tots els dos i el do del mig",
         summary: "N'hi ha un a cada grup de dues negres",
         minutes: 3,
-        steps: [
-            .look(text: "Hi ha un do a cada grup de dues negres. Tots es diuen do: els de l'esquerra sonen greus i els de la dreta, aguts.",
-                  picture: .keyboard(Keyboard(low: 48, high: 83, marked: [48, 60, 72], names: [48: "do", 60: "do", 72: "do"]))),
-            .listen(text: "Tres dos, del més greu al més agut.",
-                    tones: [Tone(midi: 48, beats: 2), Tone(midi: 60, beats: 2), Tone(midi: 72, beats: 2)], bpm: 72,
-                    keyboard: Keyboard(low: 48, high: 83, names: [48: "do", 60: "do", 72: "do"])),
-            .play("Toca tres dos diferents, començant per l'esquerra.",
-                  [Goal(accept: .named(0), label: "do"), Goal(accept: .named(0), label: "do"), Goal(accept: .named(0), label: "do")],
-                  rounds: 1, keyboard: Keyboard(low: 48, high: 83, marked: [48, 60, 72]), distinct: true),
-            .look(text: "El do del mig és el que et queda al davant quan seus al centre del piano. Sovint és a prop del nom de la marca.",
-                  picture: .keyboard(Keyboard(low: 48, high: 83, marked: [60], names: [60: "do"]))),
-            .play("Toca el do del mig. Tres vegades.",
-                  [Goal(accept: .exact(C), label: "do del mig", key: C)],
-                  keyboard: Keyboard(low: 48, high: 83)),
-        ]
+        steps: totsElsDosSteps(middleText: "El do del mig és el que et queda al davant quan seus al centre del piano. Sovint és a prop del nom de la marca."),
+        screenSteps: totsElsDosSteps(middleText: "El do del mig és el que queda al centre del teclat. Aquí és el segon dels tres.")
     )
 
     // 5
@@ -292,6 +330,188 @@ enum Course {
             .listen(text: "Quart tros. S'assembla al segon, però acaba en el do.", tones: odaD, bpm: 80, keyboard: fiveFingerKeyboard),
             .play("Toca el quart tros.", odaD.map { Goal.note($0.midi) }, rounds: 2, keyboard: fiveFingerKeyboard),
             .play("Ara tota sencera, sense pressa.", odaWhole.map { Goal.note($0.midi) }, rounds: 1, keyboard: fiveFingerKeyboard),
+        ],
+        isPiece: true
+    )
+
+    // MARK: Etapa 2 · El pols
+
+    private static func long(_ midi: Int, _ beats: Double) -> Tone { Tone(midi: midi, beats: beats) }
+    /// Dues notes dins d'un sol cop.
+    private static func pair(_ first: Int, _ second: Int) -> [Tone] { [Tone(midi: first, beats: 0.5), Tone(midi: second, beats: 0.5)] }
+
+    private static let doKeyboard = Keyboard(marked: [C], names: [C: "do"], fingers: [C: 1])
+
+    static let stage2 = Stage(
+        id: 2,
+        title: "El pols",
+        summary: "Tocar a temps: notes llargues i curtes, comptar i callar",
+        lessons: [pulsacio, llarguesICurtes, comptar, silenci, duesPerCop, lentaIDePressa, jingle]
+    )
+
+    // 9
+    static let pulsacio = Lesson(
+        id: "2-pulsacio", number: 9,
+        title: "La pulsació",
+        summary: "Tocar un do seguint el pols",
+        minutes: 3,
+        steps: [
+            .look(text: "Tota la música té un pols, com el cor: uns cops iguals, sempre a la mateixa distància. Tocar bé vol dir tocar amb el pols.",
+                  picture: .symbol("metronome.fill")),
+            .listen(text: "Primer sonen quatre cops sols, per agafar el pols. Després, un do a cada cop.",
+                    tones: tones([C, C, C, C]), bpm: 60, keyboard: doKeyboard, pulse: true),
+            .look(text: "Ara tu. Quan premis «Comença» sonaran quatre cops: escolta'ls sense tocar i entra just al cinquè.",
+                  picture: .keyboard(doKeyboard)),
+            .rhythm(text: "Un do a cada cop. Quatre dos.", tones: tones([C, C, C, C]), bpm: 60, rounds: 2, keyboard: doKeyboard),
+            .rhythm(text: "Ara vuit dos seguits, sense perdre el pols.", tones: tones([C, C, C, C, C, C, C, C]), bpm: 66, rounds: 2, keyboard: doKeyboard),
+        ]
+    )
+
+    // 10
+    private static let llargues: [Tone] = [long(C, 2), long(C, 2)] + tones([C, C, C, C])
+    private static let llarguesMelodia: [Tone] = tones([C, D]) + [long(E, 2)] + tones([E, D]) + [long(C, 2)]
+
+    static let llarguesICurtes = Lesson(
+        id: "2-llargues", number: 10,
+        title: "Notes llargues i curtes",
+        summary: "Una nota pot durar un cop, o dos",
+        minutes: 4,
+        steps: [
+            .look(text: "No totes les notes duren igual. Una nota pot durar un cop o més d'un. Una nota llarga es toca al primer cop i s'aguanta la tecla, sense tornar-la a tocar.",
+                  picture: .symbol("metronome.fill")),
+            .listen(text: "Dos dos llargs, de dos cops cadascun, i quatre de curts.",
+                    tones: llargues, bpm: 60, keyboard: doKeyboard, pulse: true),
+            .rhythm(text: "Dos dos de dos cops i quatre d'un cop. Les xifres diuen quants cops dura cada nota.",
+                    tones: llargues, bpm: 60, rounds: 2, keyboard: doKeyboard),
+            .listen(text: "Ara amb tres notes: do, re i un mi llarg. Després torna: mi, re i un do llarg.",
+                    tones: llarguesMelodia, bpm: 66, keyboard: fiveFingerKeyboard, pulse: true),
+            .rhythm(text: "Do, re, mi llarg. Mi, re, do llarg.", tones: llarguesMelodia, bpm: 66, rounds: 2, keyboard: fiveFingerKeyboard),
+        ]
+    )
+
+    // 11
+    private static let compasSencer: [Tone] = [long(C, 4), long(C, 4)]
+    private static let unITres: [Tone] = [long(C, 2), long(E, 2), long(C, 2), long(E, 2)]
+    private static let quatreIUnaLlarga: [Tone] = tones([C, D, E, F]) + [long(G, 4)]
+
+    static let comptar = Lesson(
+        id: "2-comptar", number: 11,
+        title: "Comptar fins a quatre",
+        summary: "Els cops van de quatre en quatre",
+        minutes: 4,
+        steps: [
+            .look(text: "Els cops es compten de quatre en quatre: u, dos, tres, quatre, u, dos, tres, quatre. L'u sona una mica més agut, perquè no et perdis.",
+                  picture: .symbol("4.circle.fill")),
+            .listen(text: "Compta en veu alta mentre sona. Hi ha un do a cada u, i dura els quatre cops.",
+                    tones: compasSencer, bpm: 66, keyboard: doKeyboard, pulse: true),
+            .rhythm(text: "Toca un do només a l'u i aguanta'l fins al quatre. Dues vegades seguides.",
+                    tones: compasSencer, bpm: 66, rounds: 2, keyboard: doKeyboard),
+            .rhythm(text: "Ara a l'u i al tres: do a l'u, mi al tres.",
+                    tones: unITres, bpm: 66, rounds: 2, keyboard: Keyboard(marked: [C, E], names: [C: "do", E: "mi"], fingers: [C: 1, E: 3])),
+            .rhythm(text: "Puja de do a fa, una nota a cada cop, i acaba amb un sol de quatre cops.",
+                    tones: quatreIUnaLlarga, bpm: 66, rounds: 2, keyboard: fiveFingerKeyboard),
+        ]
+    )
+
+    // 12
+    private static let ambSilenci: [Tone] = tones([C, C]) + [.rest()] + tones([C]) + tones([C, C]) + [.rest()] + tones([C])
+    private static let silencisMelodia: [Tone] = [Tone(midi: C), .rest(), Tone(midi: E), .rest()] + tones([G, G, G]) + [.rest()]
+
+    static let silenci = Lesson(
+        id: "2-silenci", number: 12,
+        title: "El silenci també compta",
+        summary: "Callar un cop sense perdre el pols",
+        minutes: 4,
+        steps: [
+            .look(text: "De vegades toca callar. Un silenci dura igual que una nota: el pols continua, però tu no toques. Aixeca el dit i espera el cop següent.",
+                  picture: .symbol("hand.raised.fill")),
+            .listen(text: "Do, do, silenci, do. Al tercer cop no sona res.",
+                    tones: ambSilenci, bpm: 60, keyboard: doKeyboard, pulse: true),
+            .rhythm(text: "Do, do, silenci, do. Dues vegades seguides. La ratlla és el silenci.",
+                    tones: ambSilenci, bpm: 60, rounds: 2, keyboard: doKeyboard),
+            .listen(text: "Ara els silencis van entre nota i nota: do, silenci, mi, silenci, i tres sols.",
+                    tones: silencisMelodia, bpm: 66, keyboard: fiveFingerKeyboard, pulse: true),
+            .rhythm(text: "Do, silenci, mi, silenci. Sol, sol, sol, silenci.",
+                    tones: silencisMelodia, bpm: 66, rounds: 2, keyboard: fiveFingerKeyboard),
+        ]
+    )
+
+    // 13
+    private static let duesNotes: [Tone] = tones([C, C]) + pair(C, C) + tones([C])
+    private static let duesNotesMelodia: [Tone] = pair(C, D) + pair(E, F) + [long(G, 2)]
+    private static let duesNotesBarreja: [Tone] = tones([E, E]) + pair(E, E) + tones([E]) + pair(D, D) + pair(D, D) + [long(C, 2)]
+
+    static let duesPerCop = Lesson(
+        id: "2-dues", number: 13,
+        title: "Dues notes per cop",
+        summary: "Notes la meitat de llargues",
+        minutes: 4,
+        steps: [
+            .look(text: "En un cop hi caben dues notes, si cadascuna dura la meitat. Compta «u i, dos i»: una nota cau sobre el cop i l'altra, just al mig.",
+                  picture: .symbol("metronome.fill")),
+            .listen(text: "Do, do, do-do, do. Al tercer cop n'hi ha dues.",
+                    tones: duesNotes, bpm: 60, keyboard: doKeyboard, pulse: true),
+            .rhythm(text: "Do, do, do-do, do. Les notes petites duren mig cop.",
+                    tones: duesNotes, bpm: 60, rounds: 2, keyboard: doKeyboard),
+            .listen(text: "Pujant de dues en dues: do-re, mi-fa, i un sol llarg.",
+                    tones: duesNotesMelodia, bpm: 60, keyboard: fiveFingerKeyboard, pulse: true),
+            .rhythm(text: "Do-re, mi-fa, sol llarg.", tones: duesNotesMelodia, bpm: 60, rounds: 2, keyboard: fiveFingerKeyboard),
+            .rhythm(text: "Tot barrejat: notes d'un cop, de mig cop i de dos.",
+                    tones: duesNotesBarreja, bpm: 63, rounds: 2, keyboard: fiveFingerKeyboard),
+        ]
+    )
+
+    // 14
+    static let lentaIDePressa = Lesson(
+        id: "2-tempo", number: 14,
+        title: "Lenta i de pressa",
+        summary: "La mateixa melodia a tres velocitats",
+        minutes: 5,
+        steps: [
+            .look(text: "El pols pot anar lent o de pressa. La melodia no canvia: cada nota dura els mateixos cops, però els cops passen més lents o més ràpids.",
+                  picture: .symbol("metronome.fill")),
+            .listen(text: "El començament de l'Oda a l'alegria, ben lent.",
+                    tones: odaA, bpm: 56, keyboard: fiveFingerKeyboard, pulse: true),
+            .rhythm(text: "Toca-la lenta. No corris: espera cada cop.", tones: odaA, bpm: 56, rounds: 1, keyboard: fiveFingerKeyboard),
+            .listen(text: "La mateixa, a pas de caminar.",
+                    tones: odaA, bpm: 76, keyboard: fiveFingerKeyboard, pulse: true),
+            .rhythm(text: "Ara a pas de caminar.", tones: odaA, bpm: 76, rounds: 1, keyboard: fiveFingerKeyboard),
+            .listen(text: "I de pressa.",
+                    tones: odaA, bpm: 100, keyboard: fiveFingerKeyboard, pulse: true),
+            .rhythm(text: "De pressa. Si no surt, no passa res: torna-hi.", tones: odaA, bpm: 100, rounds: 1, keyboard: fiveFingerKeyboard),
+        ]
+    )
+
+    // 15
+    private static let jingleA: [Tone] = tones([E, E]) + [long(E, 2)] + tones([E, E]) + [long(E, 2)]
+    private static let jingleB: [Tone] = tones([E, G, C, D]) + [long(E, 4)]
+    private static let jingleC: [Tone] = tones([F, F, F, F]) + tones([F, E, E]) + pair(E, E)
+    private static let jingleD: [Tone] = tones([E, D, D, E]) + [long(D, 2), long(G, 2)]
+    private static let jingleE: [Tone] = tones([G, G, F, D]) + [long(C, 4)]
+    private static let jingleWhole: [Tone] = jingleA + jingleB + jingleC + jingleD + jingleA + jingleB + jingleC + jingleE
+
+    static let jingle = Lesson(
+        id: "2-jingle", number: 15,
+        title: "Jingle Bells",
+        summary: "Una cançó sencera, amb el seu ritme",
+        minutes: 8,
+        steps: [
+            .look(text: "Amb el que saps ja pots tocar una cançó amb el seu ritme: Jingle Bells. Té notes d'un cop, de dos, de quatre i de mig cop. La farem a trossos.",
+                  picture: .keyboard(fiveFingerKeyboard)),
+            .listen(text: "Escolta-la sencera.", tones: jingleWhole, bpm: 104, keyboard: fiveFingerKeyboard, pulse: true),
+            .listen(text: "Primer tros. Tot són mis: curt, curt, llarg.", tones: jingleA, bpm: 80, keyboard: fiveFingerKeyboard, pulse: true),
+            .rhythm(text: "Toca el primer tros.", tones: jingleA, bpm: 80, rounds: 2, keyboard: fiveFingerKeyboard),
+            .listen(text: "Segon tros. Acaba amb un mi de quatre cops.", tones: jingleB, bpm: 80, keyboard: fiveFingerKeyboard, pulse: true),
+            .rhythm(text: "Toca el segon tros.", tones: jingleB, bpm: 80, rounds: 2, keyboard: fiveFingerKeyboard),
+            .listen(text: "Tercer tros. Comença amb el fa, el dit 4, i al final hi ha dos mis de mig cop.", tones: jingleC, bpm: 80, keyboard: fiveFingerKeyboard, pulse: true),
+            .rhythm(text: "Toca el tercer tros.", tones: jingleC, bpm: 80, rounds: 2, keyboard: fiveFingerKeyboard),
+            .listen(text: "Quart tros. Acaba amb un re i un sol llargs.", tones: jingleD, bpm: 80, keyboard: fiveFingerKeyboard, pulse: true),
+            .rhythm(text: "Toca el quart tros.", tones: jingleD, bpm: 80, rounds: 2, keyboard: fiveFingerKeyboard),
+            .look(text: "La segona meitat és igual que la primera fins a l'últim tros, que canvia per acabar en el do.",
+                  picture: .keyboard(fiveFingerKeyboard)),
+            .listen(text: "L'últim tros.", tones: jingleE, bpm: 80, keyboard: fiveFingerKeyboard, pulse: true),
+            .rhythm(text: "Toca l'últim tros.", tones: jingleE, bpm: 80, rounds: 2, keyboard: fiveFingerKeyboard),
+            .rhythm(text: "Ara tota sencera, sense pressa. Es perdona alguna nota.", tones: jingleWhole, bpm: 80, rounds: 1, keyboard: fiveFingerKeyboard),
         ],
         isPiece: true
     )

@@ -7,8 +7,20 @@ final class Recorregut: XCTestCase {
 
     override func setUp() {
         continueAfterFailure = true
-        app.launchArguments = ["-prova"]
+    }
+
+    /// Obre l'app triant amb què es toca: "real" (un piano) o "screen" (la pantalla).
+    private func launch(instrument: String) {
+        app.launchArguments = ["-prova", "-instrument", instrument]
         app.launch()
+    }
+
+    private func press(_ midis: [Int]) {
+        for midi in midis {
+            let key = app.buttons["tecla-\(midi)"].firstMatch
+            XCTAssertTrue(key.waitForExistence(timeout: 5), "No trobo la tecla \(midi)")
+            key.tap()
+        }
     }
 
     private func capture(_ name: String) {
@@ -27,11 +39,14 @@ final class Recorregut: XCTestCase {
     private func open(lesson number: Int) {
         let row = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Lliçó \(number),")).firstMatch
         XCTAssertTrue(row.waitForExistence(timeout: 5), "No trobo la lliçó \(number)")
-        if !row.isHittable { app.swipeUp() }
+        // La llista és llarga: es busca cap avall i, si no hi és, cap amunt.
+        for _ in 0..<6 where !row.isHittable { app.swipeUp(velocity: .slow) }
+        for _ in 0..<12 where !row.isHittable { app.swipeDown(velocity: .slow) }
         row.tap()
     }
 
-    func testRecorregut() {
+    func testAmbPiano() {
+        launch(instrument: "real")
         capture("01-curs")
         app.swipeUp()
         capture("02-curs-avall")
@@ -70,6 +85,87 @@ final class Recorregut: XCTestCase {
         capture("16-l7-apaisat-mira")
         tap("Continua"); capture("17-l7-apaisat-escolta")
         tap("Ara jo"); capture("18-l7-apaisat-toca")
+        XCUIDevice.shared.orientation = .portrait
+    }
+
+    func testAlaPantalla() {
+        XCUIDevice.shared.orientation = .portrait
+        launch(instrument: "screen")
+        capture("p01-curs")
+
+        open(lesson: 1)
+        capture("p02-l1-mira")
+        tap("Continua"); tap("Continua"); tap("Continua")
+        capture("p03-l1-toca")
+        press([64, 61, 67])
+        XCTAssertTrue(app.staticTexts["Lliçó acabada."].waitForExistence(timeout: 6), "La lliçó 1 no s'ha acabat tocant tres tecles")
+        capture("p04-l1-final")
+        tap("Torna al curs")
+
+        // Una nota equivocada no compta, i la bona sí.
+        open(lesson: 6)
+        tap("Continua"); tap("Ara jo")
+        press([60, 65])
+        capture("p05-l6-nota-equivocada")
+        press([62, 64, 60, 62, 64, 60, 62, 64])
+        XCTAssertTrue(app.buttons["Ara jo"].waitForExistence(timeout: 6), "Do, re, mi tres vegades no ha fet avançar el pas")
+        capture("p06-l6-escolta")
+        tap("Tanca la lliçó")
+
+        // Teclat de tres octaves: en vertical s'ha de poder passar d'octava.
+        open(lesson: 4)
+        tap("Continua"); tap("Ara jo")
+        capture("p07-l4-tres-dos")
+        press([48])
+        tap("Més agut"); press([60])
+        tap("Més agut"); press([72])
+        XCTAssertTrue(app.buttons["Continua"].waitForExistence(timeout: 6), "Tres dos diferents no han fet avançar el pas")
+        capture("p08-l4-do-del-mig")
+        tap("Tanca la lliçó")
+
+        XCUIDevice.shared.orientation = .landscapeLeft
+        open(lesson: 8)
+        capture("p09-l8-apaisat-mira")
+        tap("Continua"); tap("Continua"); tap("Ara jo")
+        capture("p10-l8-apaisat-toca")
+        press([64, 64, 65, 67])
+        capture("p11-l8-apaisat-a-mig-tros")
+        tap("Tanca la lliçó")
+        open(lesson: 4)
+        capture("p12-l4-apaisat-tres-octaves")
+        XCUIDevice.shared.orientation = .portrait
+    }
+
+    /// Etapa 2: captures de les pantalles del pols. Els tocs d'una prova no són prou puntuals per jutjar-hi el ritme.
+    func testElPols() {
+        XCUIDevice.shared.orientation = .portrait
+        launch(instrument: "screen")
+        app.swipeUp()
+        capture("r01-curs-etapa2")
+
+        open(lesson: 9)
+        capture("r02-l9-mira")
+        tap("Continua"); capture("r03-l9-escolta-pols")
+        tap("Continua"); tap("Continua")
+        capture("r04-l9-ritme-a-punt")
+        tap("Comença")
+        capture("r05-l9-comptant")
+        XCTAssertTrue(app.buttons["Torna-hi"].waitForExistence(timeout: 15), "Sense tocar res, el ritme hauria d'acabar demanant de tornar-hi")
+        capture("r06-l9-no-ha-sortit")
+        XCUIDevice.shared.orientation = .landscapeLeft
+        capture("r06b-l9-apaisat-no-ha-sortit")
+        XCUIDevice.shared.orientation = .portrait
+        tap("Tanca la lliçó")
+
+        open(lesson: 13)
+        tap("Continua"); tap("Ara jo")
+        capture("r07-l13-mig-cop")
+        tap("Tanca la lliçó")
+
+        XCUIDevice.shared.orientation = .landscapeLeft
+        open(lesson: 15)
+        tap("Continua"); tap("Continua"); tap("Ara jo")
+        capture("r08-l15-apaisat-ritme")
         XCUIDevice.shared.orientation = .portrait
     }
 }

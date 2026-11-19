@@ -15,7 +15,9 @@ final class AudioEngine: ObservableObject {
 
     private let engine = AVAudioEngine()
     private var sourceNode: AVAudioSourceNode?
-    private var started = false
+    private var outputReady = false
+    private var tapInstalled = false
+    private var wantsMicrophone = false
 
     // Veus que sonen (exemples). Les toca el fil d'àudio; cal pany.
     private struct Voice { let tone: PianoTone; let startSample: Int64 }
@@ -36,24 +38,42 @@ final class AudioEngine: ObservableObject {
 
     // MARK: Engegar
 
-    func start() {
-        guard !started else { return }
-        started = true
+    /// Engega el so. Amb `microphone`, a més, demana permís i escolta el piano.
+    /// Es pot tornar a cridar per canviar d'una manera de tocar a l'altra.
+    func start(microphone: Bool) {
+        wantsMicrophone = microphone
+        if !outputReady {
+            outputReady = true
+            setSession(microphone: false)
+            attachSource()
+            startEngine()
+        }
 
-        let session = AVAudioSession.sharedInstance()
-        try? session.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker])
-        try? session.setActive(true)
-
-        AVAudioApplication.requestRecordPermission { [weak self] granted in
-            DispatchQueue.main.async {
-                guard let self else { return }
-                self.micState = granted ? .granted : .denied
-                self.configure(withMicrophone: granted)
+        if microphone, !tapInstalled {
+            AVAudioApplication.requestRecordPermission { [weak self] granted in
+                DispatchQueue.main.async {
+                    guard let self else { return }
+                    self.micState = granted ? .granted : .denied
+                    if granted, self.wantsMicrophone { self.installTap() }
+                }
             }
+        } else if !microphone, tapInstalled {
+            removeTap()
         }
     }
 
-    private func configure(withMicrophone: Bool) {
+    private func setSession(microphone: Bool) {
+        let session = AVAudioSession.sharedInstance()
+        if microphone {
+            try? session.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker])
+        } else {
+            // Sense micròfon: només so, i que soni encara que el telèfon estigui en silenci.
+            try? session.setCategory(.playback, mode: .default)
+        }
+        try? session.setActive(true)
+    }
+
+    private func attachSource() {
         let output = engine.outputNode.outputFormat(forBus: 0)
         outputRate = output.sampleRate > 0 ? output.sampleRate : 48_000
         guard let format = AVAudioFormat(standardFormatWithSampleRate: outputRate, channels: 1) else { return }
@@ -65,20 +85,37 @@ final class AudioEngine: ObservableObject {
         sourceNode = node
         engine.attach(node)
         engine.connect(node, to: engine.mainMixerNode, format: format)
+    }
 
-        if withMicrophone {
-            let input = engine.inputNode
-            let inputFormat = input.outputFormat(forBus: 0)
-            if inputFormat.sampleRate > 0, inputFormat.channelCount > 0 {
-                let rate = inputFormat.sampleRate
-                input.installTap(onBus: 0, bufferSize: AVAudioFrameCount(hop), format: inputFormat) { [weak self] buffer, _ in
-                    self?.analyse(buffer, sampleRate: rate)
-                }
-            }
-        }
-
+    private func startEngine() {
         engine.prepare()
         try? engine.start()
+    }
+
+    private func installTap() {
+        guard !tapInstalled else { return }
+        engine.stop()
+        setSession(microphone: true)
+        let input = engine.inputNode
+        let inputFormat = input.outputFormat(forBus: 0)
+        if inputFormat.sampleRate > 0, inputFormat.channelCount > 0 {
+            let rate = inputFormat.sampleRate
+            input.installTap(onBus: 0, bufferSize: AVAudioFrameCount(hop), format: inputFormat) { [weak self] buffer, _ in
+                self?.analyse(buffer, sampleRate: rate)
+            }
+            tapInstalled = true
+        }
+        startEngine()
+    }
+
+    private func removeTap() {
+        guard tapInstalled else { return }
+        engine.stop()
+        engine.inputNode.removeTap(onBus: 0)
+        tapInstalled = false
+        setListening(false)
+        setSession(microphone: false)
+        startEngine()
     }
 
     // MARK: Tocar exemples
@@ -90,6 +127,16 @@ final class AudioEngine: ObservableObject {
         voices.append(Voice(tone: tone, startSample: renderSample))
         os_unfair_lock_unlock(&voiceLock)
         muteUntil = max(muteUntil, CACurrentMediaTime() + tone.totalDuration + 0.35)
+    }
+
+    /// Un cop del pols: curt i sec. El primer de cada quatre sona més agut.
+    func click(accent: Bool) {
+        let tone = PianoTone(frequency: accent ? 1568 : 1046.5, duration: 0.035, gain: accent ? 0.30 : 0.22)
+        os_unfair_lock_lock(&voiceLock)
+        voices.append(Voice(tone: tone, startSample: renderSample))
+        os_unfair_lock_unlock(&voiceLock)
+        // Prou per no sentir-se a si mateix, però sense tapar la nota que ve després.
+        muteUntil = max(muteUntil, CACurrentMediaTime() + 0.2)
     }
 
     func stopPlaying() {

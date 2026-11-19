@@ -91,5 +91,79 @@ check("Amb soroll de fons", listen(render(sequence(fiveFingers, every: 0.6, hold
 check("Només soroll: no ha de sentir res", listen(render([], seconds: 3, noise: 0.05)), [])
 check("Silenci: no ha de sentir res", listen(render([], seconds: 2)), [])
 
+// MARK: Ritme
+
+func verify(_ name: String, _ condition: Bool) {
+    if condition {
+        print("  bé   \(name)")
+    } else {
+        failures += 1
+        print("  MAL  \(name)")
+    }
+}
+
+/// Toca un ritme tal com és, amb cada nota desplaçada `offset` segons.
+func perform(_ tones: [Tone], beat: Double, offset: Double = 0, skip: Set<Int> = [], extraAt: [Double] = [], wrongAt: Set<Int> = []) -> RhythmJudge {
+    var judge = RhythmJudge(tones: tones, beat: beat)
+    var presses: [(time: Double, midi: Int)] = []
+    var time = 0.0
+    for (index, tone) in tones.enumerated() {
+        if !tone.rest, !skip.contains(index) {
+            presses.append((time + offset, wrongAt.contains(index) ? tone.midi + 2 : tone.midi))
+        }
+        time += tone.beats * beat
+    }
+    for extra in extraAt { presses.append((extra, 60)) }
+    for press in presses.sorted(by: { $0.time < $1.time }) { judge.heard(midi: press.midi, at: press.time) }
+    judge.close(upTo: .infinity)
+    return judge
+}
+
+print("Ritme")
+let four = [Tone(midi: 60), Tone(midi: 60), Tone(midi: 60), Tone(midi: 60)]
+verify("Quatre dos a temps", perform(four, beat: 1).passed)
+verify("Una mica abans i una mica després encara val", perform(four, beat: 1, offset: 0.2).passed && perform(four, beat: 1, offset: -0.2).passed)
+let lateJudge = perform(four, beat: 1, offset: 0.4)
+verify("Massa tard no val, i ho diu", !lateJudge.passed && lateJudge.verdict.contains("tard"))
+let earlyJudge = perform(four, beat: 1, offset: -0.4)
+verify("Massa aviat no val, i ho diu", !earlyJudge.passed && earlyJudge.verdict.contains("avançat"))
+verify("Una nota de menys no val", !perform(four, beat: 1, skip: [2]).passed)
+verify("Una nota equivocada no val", !perform(four, beat: 1, wrongAt: [1]).passed)
+verify("No tocar res no val", !perform(four, beat: 1, skip: [0, 1, 2, 3]).passed)
+let withRest = [Tone(midi: 60), Tone(midi: 60), Tone.rest(), Tone(midi: 60)]
+verify("Amb un silenci, a temps", perform(withRest, beat: 1).passed)
+let inRest = perform(withRest, beat: 1, extraAt: [2.0])
+verify("Tocar durant el silenci no val, i ho diu", !inRest.passed && inRest.verdict.contains("silenci"))
+let longNotes = [Tone(midi: 60, beats: 2), Tone(midi: 60, beats: 2)]
+verify("Tornar a tocar una nota llarga no val", !perform(longNotes, beat: 1, extraAt: [1.0]).passed)
+let halves = [Tone(midi: 60), Tone(midi: 60, beats: 0.5), Tone(midi: 62, beats: 0.5), Tone(midi: 64, beats: 2)]
+verify("Notes de mig cop a temps", perform(halves, beat: 1).passed)
+verify("Notes de mig cop: el marge es fa estret", RhythmJudge(tones: halves, beat: 1).tolerance < 0.25)
+verify("Marques: el silenci queda pendent", perform(withRest, beat: 1).toneMarks == [.hit, .hit, .pending, .hit])
+
+print("Curs")
+for lesson in Course.allLessons {
+    for step in lesson.steps {
+        guard case .rhythm(_, let tones, let bpm, _, _) = step else { continue }
+        let beats = tones.reduce(0) { $0 + $1.beats }
+        if beats.truncatingRemainder(dividingBy: 4) != 0 {
+            failures += 1
+            print("  MAL  lliçó \(lesson.number): un ritme dura \(beats) cops i no fa compassos sencers")
+        }
+        if !perform(tones, beat: 60 / bpm).passed {
+            failures += 1
+            print("  MAL  lliçó \(lesson.number): un ritme tocat perfecte no passa")
+        }
+        let allowed = tones.filter { !$0.rest }.count / 8
+        if allowed > 0, !perform(tones, beat: 60 / bpm, skip: [0]).passed {
+            failures += 1
+            print("  MAL  lliçó \(lesson.number): un ritme llarg no perdona una nota")
+        }
+    }
+}
+let numbers = Course.allLessons.map(\.number)
+verify("\(numbers.count) lliçons numerades seguides", numbers == Array(1...numbers.count))
+verify("Cap lliçó repeteix identificador", Set(Course.allLessons.map(\.id)).count == numbers.count)
+
 print(failures == 0 ? "\nTot bé." : "\n\(failures) proves han fallat.")
 exit(failures == 0 ? 0 : 1)
