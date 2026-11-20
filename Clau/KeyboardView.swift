@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import os
 
 /// Teclat dibuixat. Sense `onPress` només ensenya on és cada tecla; amb `onPress` es pot tocar.
 struct KeyboardView: View {
@@ -205,6 +206,8 @@ final class KeyTouchView: UIView {
     var onUp: ((Int) -> Void)?
     var onHeld: ((Set<Int>) -> Void)?
 
+    private static let diary = Logger(subsystem: "cat.sergicastillo.clau", category: "tecles")
+
     /// Quina tecla aguanta cada dit.
     private var held: [ObjectIdentifier: Int] = [:]
 
@@ -225,7 +228,11 @@ final class KeyTouchView: UIView {
 
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
         for touch in touches {
-            guard let midi = key(at: touch.location(in: self)) else { continue }
+            let point = touch.location(in: self)
+            let found = key(at: point)
+            // Per poder mirar, quan una tecla no respon, on ha caigut el dit i què s'hi ha entès.
+            KeyTouchView.diary.notice("toc x=\(Int(point.x)) y=\(Int(point.y)) de \(Int(self.bounds.width))x\(Int(self.bounds.height)), \(self.whites.count) blanques des de \(self.whites.first ?? 0): \(found.map(Music.name) ?? "cap tecla", privacy: .public)")
+            guard let midi = found else { continue }
             held[ObjectIdentifier(touch)] = midi
             onDown?(midi, touch.timestamp)
         }
