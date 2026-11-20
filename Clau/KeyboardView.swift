@@ -59,17 +59,20 @@ struct KeyboardView: View {
         let whiteWidth = size.width / CGFloat(max(whites.count, 1))
         let blackWidth = whiteWidth * 0.62
         let small = whiteWidth < 30
+        let letters = onPress != nil && KeyLetters.visible
+            ? Dictionary(KeyLetters.map(whites: whites, blacks: blacks).map { ($1, $0.uppercased()) }, uniquingKeysWith: { a, _ in a })
+            : [:]
 
         return ZStack(alignment: .topLeading) {
             ForEach(Array(whites.enumerated()), id: \.element) { index, midi in
-                touchable(whiteKey(midi, small: small), midi: midi)
+                touchable(whiteKey(midi, small: small, letter: letters[midi]), midi: midi)
                     .frame(width: whiteWidth, height: max(size.height, 0))
                     .offset(x: CGFloat(index) * whiteWidth)
             }
             ForEach(blacks, id: \.self) { midi in
                 // Una negra queda a cavall entre la blanca d'abans i la de després.
                 let leftWhites = whites.filter { $0 < midi }.count
-                touchable(RoundedRectangle(cornerRadius: 4).fill(fill(midi) ?? Theme.ink), midi: midi)
+                touchable(blackKey(midi, letter: letters[midi]), midi: midi)
                     .frame(width: blackWidth, height: max(size.height, 0) * 0.6)
                     .offset(x: CGFloat(leftWhites) * whiteWidth - blackWidth / 2)
             }
@@ -99,7 +102,19 @@ struct KeyboardView: View {
         }
     }
 
-    private func whiteKey(_ midi: Int, small: Bool) -> some View {
+    private func blackKey(_ midi: Int, letter: String?) -> some View {
+        ZStack(alignment: .bottom) {
+            RoundedRectangle(cornerRadius: 4).fill(fill(midi) ?? Theme.ink)
+            if let letter {
+                Text(letter)
+                    .font(.system(size: 11, weight: .semibold, design: .rounded))
+                    .foregroundStyle(Theme.card.opacity(0.8))
+                    .padding(.bottom, 5)
+            }
+        }
+    }
+
+    private func whiteKey(_ midi: Int, small: Bool, letter: String? = nil) -> some View {
         let colour = fill(midi)
         return ZStack(alignment: .bottom) {
             RoundedRectangle(cornerRadius: 5)
@@ -107,6 +122,11 @@ struct KeyboardView: View {
             RoundedRectangle(cornerRadius: 5)
                 .stroke(Theme.ink.opacity(0.45), lineWidth: 1)
             VStack(spacing: 3) {
+                if let letter {
+                    Text(letter)
+                        .font(.system(size: small ? 10 : 13, weight: .semibold, design: .rounded))
+                        .foregroundStyle(Theme.soft)
+                }
                 if let finger = keyboard.fingers[midi] {
                     Text("\(finger)")
                         .font(.system(size: small ? 11 : 15, weight: .bold, design: .rounded))
@@ -175,6 +195,40 @@ private struct TrailingIcon: LabelStyle {
     }
 }
 
+/// Quina tecla del piano toca cada lletra del teclat de l'ordinador, com en un piano de joguina:
+/// la fila del mig (A S D F G H J K L Ñ) són les blanques i la de dalt (W E T Y U O P), les negres de entremig.
+/// Si el teclat dibuixat comença més avall del do del mig, la fila de baix (Z X C V B N M) fa l'octava greu.
+enum KeyLetters {
+    private static let middle = ["a", "s", "d", "f", "g", "h", "j", "k", "l", "ñ"]
+    private static let bottom = ["z", "x", "c", "v", "b", "n", "m"]
+    /// La lletra de dalt que queda entre dues de la fila del mig, com la negra entre dues blanques.
+    private static let above: [String: String] = ["a": "w", "s": "e", "f": "t", "g": "y", "h": "u", "k": "o", "l": "p"]
+
+    static func map(whites: [Int], blacks: [Int]) -> [String: Int] {
+        guard !whites.isEmpty else { return [:] }
+        var start = 0
+        var result: [String: Int] = [:]
+        // Amb dues octaves o més, la fila del mig comença al do del mig i la de baix fa les de sota.
+        if whites.count > middle.count, let central = whites.firstIndex(of: 60), central > 0 {
+            start = central
+            for (letter, midi) in zip(bottom, whites[max(0, central - bottom.count)..<central]) {
+                result[letter] = midi
+            }
+        }
+        for (offset, letter) in middle.enumerated() where start + offset < whites.count {
+            let midi = whites[start + offset]
+            result[letter] = midi
+            if let upper = above[letter], blacks.contains(midi + 1) { result[upper] = midi + 1 }
+        }
+        return result
+    }
+
+    /// Si val la pena ensenyar les lletres: al Mac, o amb un teclat connectat.
+    static var visible: Bool {
+        ProcessInfo.processInfo.isiOSAppOnMac || ProcessInfo.processInfo.isMacCatalystApp
+    }
+}
+
 /// Rep els dits directament de UIKit: sap quan baixa cada un, amb el seu instant, i quan s'aixeca.
 private struct KeyTouchSurface: UIViewRepresentable {
     let whites: [Int]
@@ -210,6 +264,48 @@ final class KeyTouchView: UIView {
 
     /// Quina tecla aguanta cada dit.
     private var held: [ObjectIdentifier: Int] = [:]
+    /// Quina tecla del piano aguanta cada lletra del teclat de l'ordinador.
+    private var heldLetters: [String: Int] = [:]
+
+    override var canBecomeFirstResponder: Bool { true }
+
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        // Així les lletres del teclat de l'ordinador arriben aquí sense haver de clicar enlloc.
+        if window != nil { DispatchQueue.main.async { [weak self] in self?.becomeFirstResponder() } }
+    }
+
+    private func letter(of press: UIPress) -> String? {
+        guard let key = press.key, key.modifierFlags.intersection([.command, .control, .alternate]).isEmpty else { return nil }
+        return key.charactersIgnoringModifiers.lowercased()
+    }
+
+    override func pressesBegan(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
+        let letters = KeyLetters.map(whites: whites, blacks: blacks)
+        var handled = false
+        for press in presses {
+            guard let letter = letter(of: press), let midi = letters[letter] else { continue }
+            handled = true
+            // Una lletra aguantada no torna a sonar.
+            guard heldLetters[letter] == nil else { continue }
+            heldLetters[letter] = midi
+            onDown?(midi, press.timestamp)
+        }
+        if handled { onHeld?(Set(held.values).union(heldLetters.values)) } else { super.pressesBegan(presses, with: event) }
+    }
+
+    override func pressesEnded(_ presses: Set<UIPress>, with event: UIPressesEvent?) { release(presses, with: event) }
+    override func pressesCancelled(_ presses: Set<UIPress>, with event: UIPressesEvent?) { release(presses, with: event) }
+
+    private func release(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
+        var handled = false
+        for press in presses {
+            guard let letter = letter(of: press), let midi = heldLetters.removeValue(forKey: letter) else { continue }
+            handled = true
+            if !held.values.contains(midi), !heldLetters.values.contains(midi) { onUp?(midi) }
+        }
+        if handled { onHeld?(Set(held.values).union(heldLetters.values)) } else { super.pressesEnded(presses, with: event) }
+    }
 
     /// La mateixa geometria amb què es dibuixen les tecles.
     private func key(at point: CGPoint) -> Int? {
@@ -227,6 +323,7 @@ final class KeyTouchView: UIView {
     }
 
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
+        if !isFirstResponder { becomeFirstResponder() }
         for touch in touches {
             let point = touch.location(in: self)
             let found = key(at: point)
@@ -236,7 +333,7 @@ final class KeyTouchView: UIView {
             held[ObjectIdentifier(touch)] = midi
             onDown?(midi, touch.timestamp)
         }
-        onHeld?(Set(held.values))
+        onHeld?(Set(held.values).union(heldLetters.values))
     }
 
     override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) { lift(touches) }
@@ -247,6 +344,6 @@ final class KeyTouchView: UIView {
             guard let midi = held.removeValue(forKey: ObjectIdentifier(touch)) else { continue }
             if !held.values.contains(midi) { onUp?(midi) }
         }
-        onHeld?(Set(held.values))
+        onHeld?(Set(held.values).union(heldLetters.values))
     }
 }

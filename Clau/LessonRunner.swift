@@ -42,6 +42,27 @@ final class LessonRunner: ObservableObject {
     /// Posició de la nota que toca ara en un ritme.
     @Published private(set) var rhythmIndex: Int?
 
+    /// A quina velocitat van el pols i els exemples. Es recorda d'una lliçó a l'altra.
+    enum Speed: Double, CaseIterable, Identifiable {
+        case slowest = 0.6, slow = 0.8, normal = 1
+        var id: Double { rawValue }
+        var label: String {
+            switch self {
+            case .slowest: return "Molt lent"
+            case .slow: return "Lent"
+            case .normal: return "Normal"
+            }
+        }
+        static let storageKey = "velocitat"
+    }
+
+    @Published var speed: Speed = Speed(rawValue: UserDefaults.standard.double(forKey: Speed.storageKey)) ?? .normal {
+        didSet { if !ClauApp.isTest { UserDefaults.standard.set(speed.rawValue, forKey: Speed.storageKey) } }
+    }
+
+    /// Durada d'un cop, en segons, a la velocitat triada.
+    private func beatLength(_ bpm: Double) -> Double { 60 / (bpm * speed.rawValue) }
+
     private var judge: RhythmJudge?
     private var patternStart: CFTimeInterval = 0
     private var rhythmTask: Task<Void, Never>?
@@ -156,7 +177,7 @@ final class LessonRunner: ObservableObject {
         audio?.stopPlaying()
         isPlaying = true
         count = nil
-        let beat = 60 / bpm
+        let beat = beatLength(bpm)
         let lead = pulse ? 4 : 0
         let total = tones.reduce(0) { $0 + $1.beats }
         let ticks = pulse ? lead + Int(total.rounded(.up)) : 0
@@ -211,7 +232,7 @@ final class LessonRunner: ObservableObject {
         guard case .rhythm(_, let tones, let bpm, _, _) = step, !stepComplete, rhythmPhase == .idle else { return }
         rhythmTask?.cancel()
         advancing?.cancel()
-        let beat = 60 / bpm
+        let beat = beatLength(bpm)
         let judge = RhythmJudge(tones: tones, beat: beat, slack: instrument == .real ? 0.06 : 0)
         self.judge = judge
         marks = judge.toneMarks
@@ -270,7 +291,7 @@ final class LessonRunner: ObservableObject {
     private func heardInRhythm(_ midi: Int, at moment: TimeInterval?) {
         guard rhythmPhase != .idle, var judge else { return }
         let beatLength: Double
-        if case .rhythm(_, _, let bpm, _, _) = step { beatLength = 60 / bpm } else { return }
+        if case .rhythm(_, _, let bpm, _, _) = step { beatLength = self.beatLength(bpm) } else { return }
         // El dit es compara amb el pols tal com se sent, que surt una mica més tard del que s'ha demanat.
         var time = (moment ?? CACurrentMediaTime()) - patternStart - (audio?.outputDelay ?? 0)
         if instrument == .real { time -= microphoneDelay }
@@ -309,7 +330,7 @@ final class LessonRunner: ObservableObject {
         count = nil
         audio?.setListening(false)
 
-        LessonRunner.log("lliçó \(lesson.number), pas \(stepIndex + 1), \(instrument == .screen ? "pantalla" : "piano"), sortida de so \(String(format: "%.3f", audio?.outputDelay ?? 0)) s\n  \(judge.report)")
+        LessonRunner.log("lliçó \(lesson.number), pas \(stepIndex + 1), \(instrument == .screen ? "pantalla" : "piano"), velocitat \(speed.label), sortida de so \(String(format: "%.3f", audio?.outputDelay ?? 0)) s\n  \(judge.report)")
 
         guard judge.passed else {
             say(judge.verdict, .wrong)

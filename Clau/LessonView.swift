@@ -327,6 +327,8 @@ struct LessonView: View {
                 HStack(spacing: 14) {
                     pulseDots
                     if rounds > 1 { roundDots(rounds) }
+                    Spacer(minLength: 0)
+                    speedPicker
                 }
                 if runner.message.isEmpty {
                     Text(pulseText.isEmpty ? " " : pulseText)
@@ -337,14 +339,50 @@ struct LessonView: View {
                 }
             } else {
                 if rounds > 1 { roundDots(rounds) }
-                pulseRow
+                HStack {
+                    pulseRow
+                    Spacer(minLength: 8)
+                    speedPicker
+                }
                 if onScreen { screenStatus } else { listeningRow }
             }
         case .listen(_, _, _, _, let pulse):
-            if pulse { pulseRow }
+            HStack {
+                if pulse { pulseRow }
+                Spacer(minLength: 8)
+                speedPicker
+            }
         case .look:
             EmptyView()
         }
+    }
+
+    /// Tria de velocitat: el pols i els exemples poden anar més a poc a poc.
+    private var speedPicker: some View {
+        let busy = runner.rhythmPhase != .idle || runner.isPlaying
+        return HStack(spacing: 6) {
+            ForEach(LessonRunner.Speed.allCases) { speed in
+                let chosen = runner.speed == speed
+                Button {
+                    runner.speed = speed
+                } label: {
+                    Text(speed.label)
+                        .font(.subheadline.weight(chosen ? .bold : .medium))
+                        .foregroundStyle(chosen ? Theme.card : Theme.ink)
+                        .padding(.horizontal, compact ? 8 : 11)
+                        .padding(.vertical, compact ? 4 : 6)
+                        .background(chosen ? Theme.ink : Theme.card, in: Capsule())
+                        .overlay(Capsule().stroke(Theme.line, lineWidth: chosen ? 0 : 1))
+                }
+                .buttonStyle(.plain)
+                .accessibilityAddTraits(chosen ? .isSelected : [])
+                .accessibilityIdentifier("velocitat-\(speed.label)")
+            }
+        }
+        .disabled(busy)
+        .opacity(busy ? 0.5 : 1)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Velocitat")
     }
 
     /// Els quatre cops del compàs; s'encén el que sona.
