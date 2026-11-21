@@ -60,12 +60,24 @@ struct StaffView: View {
         return tone.midi >= 60 ? staves[0] : staves[1]
     }
 
+    /// Amb compassos o amb punts de cop, cada nota ocupa el que dura; si no, totes igual.
+    private func size(of tone: Tone) -> Double { score.bars || score.counts ? tone.beats : 1 }
+
+    /// Fins on s'omple un rengle. Sense compassos, els rengles es reparteixen iguals: millor 5 i 4 que 8 i 1.
+    private var rowLimit: Double {
+        if score.bars { return capacity }
+        let whole = score.tones.reduce(0) { $0 + size(of: $1) }
+        let rows = max(1, (whole / capacity).rounded(.up))
+        return (whole / rows).rounded(.up)
+    }
+
     private var systems: [System] {
         var result: [System] = []
         var system = System(isFirst: true)
+        let limit = rowLimit
         for (index, tone) in score.tones.enumerated() {
-            let size = score.bars ? tone.beats : 1
-            if system.total + size > capacity + 0.001, !system.notes.isEmpty {
+            let size = size(of: tone)
+            if system.total + size > limit + 0.001, !system.notes.isEmpty {
                 result.append(system)
                 system = System()
             }
@@ -174,11 +186,11 @@ struct StaffView: View {
 
         let right = width - 1.0 * s
         let room = max(right - left, 1)
-        let total = score.bars ? capacity : max(system.total, 5)
+        let total = score.bars ? capacity : max(rowLimit, 5)
 
         for note in system.notes {
             let slot = CGFloat(note.size / total) * room
-            let x = left + CGFloat(note.start / total) * room + min(slot * 0.5, 1.7 * s)
+            let x = left + CGFloat(note.start / total) * room + min(slot * 0.42, 1.7 * s)
             let tint = color(for: note.index)
             let home = staff(for: note.tone)
 
@@ -207,11 +219,32 @@ struct StaffView: View {
             }
         }
 
+        if score.grand, score.bars {
+            // Els compassos on una mà no toca porten un silenci sencer.
+            var bar = 0.0
+            while bar < system.total - 0.001 {
+                let inBar = system.notes.filter { $0.start >= bar - 0.001 && $0.start < bar + 4 - 0.001 && !$0.tone.rest }
+                for staff in staves where !inBar.contains(where: { self.staff(for: $0.tone).bass == staff.bass }) {
+                    drawRest(4, in: &context, x: left + CGFloat((bar + 2) / total) * room, color: Theme.ink, staff: staff)
+                }
+                bar += 4
+            }
+        }
+
         if score.bars, !system.notes.isEmpty {
             let end = left + CGFloat(system.total / total) * room
-            if system.isLast {
+            if system.isLast, score.ends || score.repeats {
                 barline(in: &context, x: end - 0.55 * s, width: max(1, s * 0.11))
                 barline(in: &context, x: end, width: s * 0.38)
+                if score.repeats {
+                    // Els dos punts de la repetició, als dos espais del mig de cada pentagrama.
+                    for staff in staves {
+                        for step in [3, 5] {
+                            let dot = CGRect(x: end - 1.25 * s, y: y(ofStep: step, in: staff) - 0.22 * s, width: 0.44 * s, height: 0.44 * s)
+                            context.fill(Path(ellipseIn: dot), with: .color(Theme.ink))
+                        }
+                    }
+                }
             } else {
                 barline(in: &context, x: end, width: max(1, s * 0.11))
             }
@@ -279,8 +312,8 @@ struct StaffView: View {
         for ledger in ledgers {
             var path = Path()
             let ledgerY = y(ofStep: ledger, in: staff)
-            path.move(to: CGPoint(x: x - 1.1 * s, y: ledgerY))
-            path.addLine(to: CGPoint(x: x + 1.1 * s, y: ledgerY))
+            path.move(to: CGPoint(x: x - 0.78 * s, y: ledgerY))
+            path.addLine(to: CGPoint(x: x + 0.78 * s, y: ledgerY))
             context.stroke(path, with: .color(Theme.soft), lineWidth: max(1, s * 0.09))
         }
 
@@ -294,19 +327,22 @@ struct StaffView: View {
         }
 
         if tone.beats < 4 {
-            let stemX = x + rx * 0.93
-            let top = centerY - 3.2 * s
+            // De la ratlla del mig cap amunt, el pal va avall i a l'esquerra, com s'escriu.
+            let down = position >= 4
+            let direction: CGFloat = down ? 1 : -1
+            let stemX = down ? x - rx * 0.93 : x + rx * 0.93
+            let tip = centerY + direction * 3.2 * s
             var stem = Path()
-            stem.move(to: CGPoint(x: stemX, y: centerY - 0.12 * s))
-            stem.addLine(to: CGPoint(x: stemX, y: top))
+            stem.move(to: CGPoint(x: stemX, y: centerY + direction * 0.12 * s))
+            stem.addLine(to: CGPoint(x: stemX, y: tip))
             context.stroke(stem, with: .color(color), lineWidth: max(1, s * 0.13))
 
             if tone.beats < 1 {
                 var flag = Path()
-                flag.move(to: CGPoint(x: stemX, y: top))
-                flag.addCurve(to: CGPoint(x: stemX + 0.75 * s, y: top + 2.0 * s),
-                              control1: CGPoint(x: stemX + 0.1 * s, y: top + 0.9 * s),
-                              control2: CGPoint(x: stemX + 1.25 * s, y: top + 1.0 * s))
+                flag.move(to: CGPoint(x: stemX, y: tip))
+                flag.addCurve(to: CGPoint(x: stemX + 0.75 * s, y: tip - direction * 2.0 * s),
+                              control1: CGPoint(x: stemX + 0.1 * s, y: tip - direction * 0.9 * s),
+                              control2: CGPoint(x: stemX + 1.25 * s, y: tip - direction * 1.0 * s))
                 context.stroke(flag, with: .color(color), style: StrokeStyle(lineWidth: s * 0.22, lineCap: .round))
             }
         }

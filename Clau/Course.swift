@@ -68,6 +68,10 @@ struct Score: Equatable {
     var bars = false
     /// Clau de fa, per a la mà esquerra.
     var bass = false
+    /// La música s'acaba aquí: ratlla doble final. Si és un tros d'una peça més llarga, ratlla simple.
+    var ends = true
+    /// Es toca dues vegades: signe de repetició al final.
+    var repeats = false
     /// Els dos pentagrames de les dues mans: del do del mig cap amunt, la clau de sol; cap avall, la de fa.
     var grand = false
 }
@@ -425,10 +429,10 @@ enum Course {
                     tones: compasSencer, bpm: 66, keyboard: doKeyboard, pulse: true),
             .rhythm(text: "Toca un do només a l'u i aguanta'l fins al quatre. Dues vegades seguides.",
                     tones: compasSencer, bpm: 66, rounds: 2, keyboard: doKeyboard),
-            .rhythm(text: "Ara a l'u i al tres: do a l'u, mi al tres.",
-                    tones: unITres, bpm: 66, rounds: 2, keyboard: Keyboard(marked: [C, E], names: [C: "do", E: "mi"], fingers: [C: 1, E: 3])),
             .rhythm(text: "Puja de do a fa, una nota a cada cop, i acaba amb un sol de quatre cops.",
                     tones: quatreIUnaLlarga, bpm: 66, rounds: 2, keyboard: fiveFingerKeyboard),
+            .rhythm(text: "Ara a l'u i al tres: do a l'u, mi al tres. Cada nota s'aguanta dos cops.",
+                    tones: unITres, bpm: 66, rounds: 2, keyboard: Keyboard(marked: [C, E], names: [C: "do", E: "mi"], fingers: [C: 1, E: 3])),
         ]
     )
 
@@ -530,6 +534,8 @@ enum Course {
                   picture: .keyboard(fiveFingerKeyboard)),
             .listen(text: "L'últim tros.", tones: jingleE, bpm: 80, keyboard: fiveFingerKeyboard, pulse: true),
             .rhythm(text: "Toca l'últim tros.", tones: jingleE, bpm: 80, rounds: 2, keyboard: fiveFingerKeyboard),
+            .rhythm(text: "Ara la primera meitat seguida: els quatre primers trossos.", tones: jingleA + jingleB + jingleC + jingleD, bpm: 80, rounds: 1, keyboard: fiveFingerKeyboard),
+            .rhythm(text: "I la segona meitat, que acaba en el do.", tones: jingleA + jingleB + jingleC + jingleE, bpm: 80, rounds: 1, keyboard: fiveFingerKeyboard),
             .rhythm(text: "Ara tota sencera, sense pressa. Es perdona alguna nota.", tones: jingleWhole, bpm: 80, rounds: 1, keyboard: fiveFingerKeyboard),
         ],
         isPiece: true
@@ -673,7 +679,7 @@ enum Course {
                   picture: .staff(Score(tones: pair(E, E) + tones([E]), counts: true))),
             .look(text: "I el silenci d'un cop s'escriu amb aquest senyal.",
                   picture: .staff(Score(tones: [Tone(midi: E), .rest(), Tone(midi: E), .rest()], counts: true))),
-            .rhythm(text: "Tot junt, i sense els números.", tones: figuresBarreja, bpm: 63, rounds: 2,
+            .rhythm(text: "Tot junt, i sense els punts.", tones: figuresBarreja, bpm: 63, rounds: 2,
                     keyboard: keyboard(Score(tones: figuresBarreja))),
         ]
     )
@@ -691,7 +697,7 @@ enum Course {
         minutes: 7,
         steps: [
             .look(text: "Les ratlles verticals parteixen la música en compassos. Els dos quatres del començament diuen que a cada compàs hi caben quatre cops.",
-                  picture: .staff(Score(tones: Array(compasA.prefix(6)), bars: true))),
+                  picture: .staff(Score(tones: Array(compasA.prefix(6)), bars: true, ends: false))),
             .look(text: "Per comptar, torna a començar a cada ratlla vertical: u, dos, tres, quatre. La ratlla doble del final vol dir que s'ha acabat.",
                   picture: .staff(Score(tones: compasA, bars: true))),
             .listen(text: "Segueix-la amb la vista mentre sona.", tones: compasA, bpm: 69,
@@ -702,7 +708,7 @@ enum Course {
                     keyboard: keyboard(Score(tones: compasRitme, counts: true, bars: true))),
             .rhythm(text: "Ara els dos primers compassos amb el pols. Sota cada nota s'encén un punt a cada cop: canvia de nota quan s'encén el primer punt de la següent.",
                     tones: Array(compasA.prefix(6)), bpm: 66, rounds: 1,
-                    keyboard: keyboard(Score(tones: Array(compasA.prefix(6)), counts: true, bars: true))),
+                    keyboard: keyboard(Score(tones: Array(compasA.prefix(6)), counts: true, bars: true, ends: false))),
             .rhythm(text: "Ara sencera. Les blanques s'aguanten fins que s'han encès els dos punts.", tones: compasA, bpm: 66, rounds: 1,
                     keyboard: keyboard(Score(tones: compasA, counts: true, bars: true))),
             read("Aquesta no l'has sentida. Primer només les notes.", compasB, rounds: 1, bars: true),
@@ -754,8 +760,8 @@ enum Course {
                     keyboard: keyboard(Score(tones: llunaTota, counts: true, bars: true))),
             .listen(text: "Escolta-la. Ho has llegit bé?", tones: llunaTota, bpm: 84,
                     keyboard: keyboard(Score(tones: llunaTota, bars: true)), pulse: true),
-            .rhythm(text: "Per acabar, dues vegades seguides i una mica més de pressa.", tones: llunaTota + llunaTota, bpm: 84, rounds: 1,
-                    keyboard: keyboard(Score(tones: llunaTota, bars: true))),
+            .rhythm(text: "Per acabar, dues vegades seguides i una mica més de pressa. Els dos punts del final volen dir que es torna a començar.", tones: llunaTota + llunaTota, bpm: 76, rounds: 1,
+                    keyboard: keyboard(Score(tones: llunaTota, bars: true, repeats: true))),
         ],
         isPiece: true
     )
@@ -888,7 +894,7 @@ enum Course {
                     keyboard: leftKeyboard(Score(tones: baseA, counts: true, bass: true)), pulse: true),
             .rhythm(text: "Toca el do i aguanta'l quatre cops. Després, el sol.", tones: baseA, bpm: 66, rounds: 2,
                     keyboard: leftKeyboard(Score(tones: baseA, counts: true, bass: true))),
-            .listen(text: "Ara amb dues blanques i dues negres que baixen al final.", tones: baseB, bpm: 66,
+            .listen(text: "Ara amb tres blanques i dues negres que baixen al final.", tones: baseB, bpm: 66,
                     keyboard: leftKeyboard(Score(tones: baseB, counts: true, bass: true)), pulse: true),
             .rhythm(text: "Do i sol, de dos cops cadascun; un altre do; i després fa i mi d'un cop.", tones: baseB, bpm: 66, rounds: 2,
                     keyboard: leftKeyboard(Score(tones: baseB, counts: true, bass: true))),
@@ -910,6 +916,8 @@ enum Course {
                   picture: .staff(Score(tones: odaLowA, bass: true))),
             .listen(text: "Primer tros.", tones: odaLowA, bpm: 80, keyboard: leftKeyboard(Score(tones: odaLowA, bass: true))),
             readHands("Toca el primer tros.", odaLowA, rounds: 2),
+            .look(text: "Al segon tros hi ha una nota amb un punt al costat. El punt allarga la nota la meitat: aquesta dura un cop i mig, i la de després, que porta una cua, només mig. Aquí només es toquen les notes, sense pols.",
+                  picture: .staff(Score(tones: odaLowB, counts: true, bass: true))),
             .listen(text: "Segon tros. Comença en el do, amb el dit 5.", tones: odaLowB, bpm: 80, keyboard: leftKeyboard(Score(tones: odaLowB, bass: true))),
             readHands("Toca el segon tros.", odaLowB, rounds: 2),
             readHands("Els dos trossos seguits, sense pressa.", odaLowA + odaLowB, rounds: 1),
@@ -971,13 +979,14 @@ enum Course {
         summary: "Una frase amb cada mà",
         minutes: 8,
         steps: [
-            .look(text: "L'Oda a l'alegria, un cop més. Ara passa d'una mà a l'altra: la dreta fa les frases que pugen i l'esquerra, les que baixen fins al do. Mira on és escrita cada una.",
+            .look(text: "L'Oda a l'alegria, un cop més. Ara passa d'una mà a l'altra: la dreta fa la primera frase i la tercera, i l'esquerra, la segona i la quarta, que acaba en el do. Mira on és escrita cada una.",
                   picture: .staff(Score(tones: odaMix, bars: true, grand: true))),
             .listen(text: "Escolta-la sencera.", tones: odaMix, bpm: 92,
                     keyboard: handsKeyboard(Score(tones: odaMix, bars: true, grand: true))),
             readHands("Primer tros: la dreta, a dalt.", odaA, rounds: 2, both: true),
             readHands("Segon tros: ara l'esquerra, a sota.", odaLowB, rounds: 2, both: true),
-            readHands("El tercer tros és igual que el primer, amb la dreta. El quart s'assembla al segon i acaba en el do.", odaLowD, rounds: 2, both: true),
+            readHands("El tercer tros és igual que el primer: torna-hi amb la dreta.", odaA, rounds: 1, both: true),
+            readHands("El quart, amb l'esquerra. S'assembla al segon, però acaba en el do.", odaLowD, rounds: 2, both: true),
             readHands("Ara tota sencera, passant d'una mà a l'altra.", odaMix, rounds: 1, bars: true, both: true),
         ],
         isPiece: true
