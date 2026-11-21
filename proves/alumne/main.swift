@@ -88,7 +88,7 @@ print("Columnes: alumne segur / normal / principiant / ritme propi, a velocitat 
 print("Els tres primers segueixen el clic; «ritme propi» porta el seu tempo sense escoltar-lo.\n")
 for lesson in Course.allLessons {
     for (index, step) in lesson.steps.enumerated() {
-        guard case .rhythm(let text, let tones, let bpm, let rounds, _) = step else { continue }
+        guard case .rhythm(let text, let tones, let bpm, _, _) = step else { continue }
         var rng = Seeded(state: UInt64(lesson.number * 100 + index))
         var cells: [String] = []
         var rates: [String: [Double]] = [:]
@@ -97,10 +97,8 @@ for lesson in Course.allLessons {
             for profile in profiles {
                 var passed = 0
                 for _ in 0..<attempts {
-                    // Cal passar totes les voltes seguides.
-                    var all = true
-                    for _ in 0..<rounds where all { all = attempt(tones, beat: beat, profile: profile, rng: &rng) }
-                    if all { passed += 1 }
+                    // Cada intent compta sol: a l'app, una volta dolenta no fa perdre les bones.
+                    if attempt(tones, beat: beat, profile: profile, rng: &rng) { passed += 1 }
                 }
                 let rate = Double(passed) / Double(attempts)
                 rates[profile.name, default: []].append(rate)
