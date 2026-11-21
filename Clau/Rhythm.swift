@@ -33,6 +33,10 @@ struct RhythmJudge {
     private var presses: [(midi: Int, time: Double, result: String)] = []
     /// La primera nota llarga que no s'ha esperat prou: quina és i quants cops dura.
     private var cutShort: (note: Int, beats: Double)?
+    /// Notes que s'han tocat amb la tecla bona però a deshora.
+    private var offTime: Set<Int> = []
+    /// D'aquestes, les que s'han tocat abans d'hora: encara es poden tocar bé al seu moment.
+    private var earlyClaims: Set<Int> = []
 
     /// `slack` afegeix marge, per quan les notes arriben pel micròfon.
     init(tones: [Tone], beat: Double, slack: Double = 0) {
@@ -61,11 +65,23 @@ struct RhythmJudge {
     @discardableResult
     mutating func heard(midi: Int, at time: Double) -> Mark? {
         close(upTo: time)
+        let pitchClass = Music.pitchClass(midi)
 
-        // La nota esperada més propera que encara no s'ha encertat.
+        // Una nota que s'havia tocat massa aviat i ara es toca al seu moment: compta bé, i el toc d'abans queda com a toc de més.
+        if let index = earlyClaims.first(where: { abs(time - notes[$0].time) <= tolerance && notes[$0].pitchClass == pitchClass }) {
+            earlyClaims.remove(index)
+            offTime.remove(index)
+            marks[index] = .hit
+            early -= 1
+            extras += 1
+            presses.append((midi, time, "nota \(index + 1)"))
+            return .hit
+        }
+
+        // La nota esperada més propera que encara no s'ha tocat.
         var nearest: Int?
         var distance = Double.infinity
-        for index in notes.indices where marks[index] == .pending || marks[index] == .missed {
+        for index in notes.indices where isOpen(index) {
             let gap = abs(time - notes[index].time)
             if gap < distance {
                 nearest = index
@@ -81,19 +97,37 @@ struct RhythmJudge {
         }
 
         if marks[index] == .pending, distance <= tolerance {
-            if Music.pitchClass(midi) == notes[index].pitchClass {
+            if pitchClass == notes[index].pitchClass {
                 marks[index] = .hit
-            } else {
-                marks[index] = .wrong
-                if firstWrong == nil { firstWrong = (midi, notes[index].pitchClass) }
+                presses.append((midi, time, "nota \(index + 1)"))
+                return .hit
             }
-            presses.append((midi, time, marks[index] == .hit ? "nota \(index + 1)" : "nota \(index + 1), tecla equivocada"))
-            return marks[index]
+            // És la tecla de la nota d'abans o de la de després: s'ha tocat a deshora, no s'ha equivocat de tecla.
+            if let neighbour = neighbour(of: index, pitchClass: pitchClass, at: time) {
+                playedOffTime(neighbour, midi: midi, at: time)
+                return nil
+            }
+            marks[index] = .wrong
+            if firstWrong == nil { firstWrong = (midi, notes[index].pitchClass) }
+            presses.append((midi, time, "nota \(index + 1), tecla equivocada"))
+            return .wrong
+        }
+
+        // Fora del marge. Si és la tecla d'aquesta nota (o de la del costat) i no queda lluny, és aquella nota tocada a deshora:
+        // compta com un sol error, no com una nota perduda més un toc de més.
+        if distance < beat, pitchClass == notes[index].pitchClass {
+            playedOffTime(index, midi: midi, at: time)
+            return nil
+        }
+        if let neighbour = neighbour(of: index, pitchClass: pitchClass, at: time) {
+            playedOffTime(neighbour, midi: midi, at: time)
+            return nil
         }
 
         presses.append((midi, time, "fora de temps, a prop de la nota \(index + 1)"))
         // Si la nota d'abans era llarga i s'ha tocat la següent abans d'hora, és que no s'ha esperat.
-        if cutShort == nil, time < notes[index].time, index > 0, notes[index - 1].beats >= 2, marks[index - 1] == .hit {
+        if cutShort == nil, time < notes[index].time, index > 0, notes[index - 1].beats >= 2,
+           marks[index - 1] == .hit || offTime.contains(index - 1) {
             cutShort = (index, notes[index - 1].beats)
         }
         extras += 1
@@ -103,6 +137,34 @@ struct RhythmJudge {
             strays += 1
         }
         return nil
+    }
+
+    /// Una nota que encara es pot tocar: no ha sonat, o s'ha donat per perduda però ningú l'ha tocat a deshora.
+    private func isOpen(_ index: Int) -> Bool {
+        marks[index] == .pending || (marks[index] == .missed && !offTime.contains(index))
+    }
+
+    /// Una nota de prop (fins a dues abans o després), si és d'aquesta tecla i encara es pot tocar: qui va avançat o endarrerit
+    /// dins de la melodia. Com a molt, a la distància que hi ha entre les dues notes (més el marge). Primer les més properes.
+    private func neighbour(of index: Int, pitchClass: Int, at time: Double) -> Int? {
+        [index - 1, index + 1, index - 2, index + 2].first { other in
+            notes.indices.contains(other) && isOpen(other) && notes[other].pitchClass == pitchClass
+                && abs(time - notes[other].time) <= abs(notes[other].time - notes[index].time) + tolerance
+        }
+    }
+
+    /// La tecla bona, però a deshora: la nota queda fallada i es recorda si anava avançat o endarrerit.
+    private mutating func playedOffTime(_ index: Int, midi: Int, at time: Double) {
+        marks[index] = .missed
+        offTime.insert(index)
+        let ahead = time < notes[index].time
+        if ahead { early += 1; earlyClaims.insert(index) } else { late += 1 }
+        presses.append((midi, time, "nota \(index + 1), \(ahead ? "abans" : "després") d'hora"))
+        // Si la nota d'abans era llarga i aquesta ha arribat abans d'hora, és que no s'ha esperat.
+        if cutShort == nil, ahead, index > 0, notes[index - 1].beats >= 2,
+           marks[index - 1] == .hit || offTime.contains(index - 1) {
+            cutShort = (index, notes[index - 1].beats)
+        }
     }
 
     /// Dona per perdudes les notes que ja haurien d'haver sonat.
@@ -141,6 +203,25 @@ struct RhythmJudge {
         return mean / beat
     }
 
+    /// Si s'han tocat les notes seguides, però a un tempo propi diferent del pols: quant més llarg és cada cop (1,1 = un 10 % més lent).
+    var ownTempo: Double? {
+        let count = min(presses.count, notes.count)
+        guard count >= 4, abs(presses.count - notes.count) <= 1 else { return nil }
+        let x = notes.prefix(count).map(\.time)
+        let y = presses.prefix(count).map(\.time)
+        guard let first = x.first, let last = x.last, last - first >= 2 * beat else { return nil }
+        let mx = x.reduce(0, +) / Double(count), my = y.reduce(0, +) / Double(count)
+        let sxy = zip(x, y).reduce(0) { $0 + ($1.0 - mx) * ($1.1 - my) }
+        let sxx = x.reduce(0) { $0 + ($1 - mx) * ($1 - mx) }
+        guard sxx > 0 else { return nil }
+        let slope = sxy / sxx
+        let intercept = my - slope * mx
+        // Ha de ser un tempo regular: cada toc a prop de la recta.
+        let fits = zip(x, y).allSatisfy { abs($1 - (intercept + slope * $0)) <= max(tolerance, 0.25 * beat) }
+        guard fits, abs(slope - 1) > 0.08 else { return nil }
+        return slope
+    }
+
     /// Per al registre: què s'esperava i què s'ha tocat, amb els temps en segons.
     var report: String {
         let wanted = notes.enumerated().map { "\($0 + 1):\(Music.names[$1.pitchClass])@\(String(format: "%.2f", $1.time))" }.joined(separator: " ")
@@ -150,13 +231,18 @@ struct RhythmJudge {
 
     /// Què ha fallat, dit en una frase.
     var verdict: String {
-        if missed == notes.count, extras == 0, wrong == 0 {
+        if missed == notes.count, extras == 0, wrong == 0, offTime.isEmpty {
             return "No he sentit cap nota. Entra just després dels quatre cops."
         }
         if let shift = wholeShift {
             return shift < 0
                 ? "El ritme és bo, però has entrat abans d'hora. Espera que acabin els quatre cops."
                 : "El ritme és bo, però has entrat tard. La primera nota va just després dels quatre cops."
+        }
+        if let ratio = ownTempo {
+            return ratio < 1
+                ? "Vas més de pressa que el pols. Escolta el clic i fes que cada nota caigui just amb ell."
+                : "Vas més a poc a poc que el pols. Escolta el clic i fes que cada nota caigui just amb ell."
         }
         if let cutShort {
             let beats = Int(cutShort.beats)

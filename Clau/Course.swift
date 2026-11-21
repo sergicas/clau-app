@@ -680,6 +680,8 @@ enum Course {
 
     // 22
     private static let compasA: [Tone] = tones([C, D, E, F]) + [long(G, 2), long(E, 2)] + tones([F, F, E, E]) + [long(D, 2), long(C, 2)]
+    /// El ritme de `compasA`, tot amb el do: per escoltar el clic sense haver de llegir.
+    private static let compasRitme: [Tone] = compasA.map { Tone(midi: C, beats: $0.beats) }
     private static let compasB: [Tone] = [long(E, 2), long(G, 2)] + tones([F, E]) + [long(D, 2)] + tones([C, D, E, F]) + [long(E, 4)]
 
     static let compas = Lesson(
@@ -695,6 +697,9 @@ enum Course {
             .listen(text: "Segueix-la amb la vista mentre sona.", tones: compasA, bpm: 69,
                     keyboard: keyboard(Score(tones: compasA, bars: true)), pulse: true),
             read("Abans del pols, només les notes, sense pressa.", compasA, rounds: 1, bars: true),
+            .rhythm(text: "Ara només el ritme, tot amb el do. No pensis en les notes: escolta el clic i fes que cada do caigui just amb ell. Les blanques duren dos clics.",
+                    tones: compasRitme, bpm: 66, rounds: 1,
+                    keyboard: keyboard(Score(tones: compasRitme, counts: true, bars: true))),
             .rhythm(text: "Ara els dos primers compassos amb el pols. Sota cada nota s'encén un punt a cada cop: canvia de nota quan s'encén el primer punt de la següent.",
                     tones: Array(compasA.prefix(6)), bpm: 66, rounds: 1,
                     keyboard: keyboard(Score(tones: Array(compasA.prefix(6)), counts: true, bars: true))),

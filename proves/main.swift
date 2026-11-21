@@ -153,6 +153,46 @@ verify("Entrar un cop tard: ho diu", !lateEntry.passed && lateEntry.verdict.cont
 let earlyEntry = perform(four, beat: 1, offset: -1.0)
 verify("Entrar un cop abans: ho diu", !earlyEntry.passed && earlyEntry.verdict.contains("abans d'hora"))
 
+// Els casos de la revisió del 21-11: la lliçó 22, que en Sergi tocava al seu propi tempo.
+let compas = [60, 62, 64, 65].map { Tone(midi: $0) } + [Tone(midi: 67, beats: 2), Tone(midi: 64, beats: 2)]
+    + [65, 65, 64, 64].map { Tone(midi: $0) } + [Tone(midi: 62, beats: 2), Tone(midi: 60, beats: 2)]
+func ownTempo(_ tones: [Tone], beat: Double, played: Double) -> RhythmJudge {
+    var judge = RhythmJudge(tones: tones, beat: beat)
+    var time = 0.0
+    for tone in tones where !tone.rest {
+        judge.heard(midi: tone.midi, at: time * played)
+        time += tone.beats
+    }
+    judge.close(upTo: .infinity)
+    return judge
+}
+let slower = ownTempo(compas, beat: 0.909, played: 1.0)
+verify("Tempo propi més lent: diu que va més a poc a poc, no que s'equivoca de tecla", !slower.passed && slower.verdict.contains("més a poc a poc que el pols"))
+let faster = ownTempo(compas, beat: 1.136, played: 1.0)
+verify("Tempo propi més ràpid: diu que va més de pressa", !faster.passed && faster.verdict.contains("més de pressa que el pols"))
+var behind = RhythmJudge(tones: compas, beat: 0.909)
+var at = 0.0
+for (index, tone) in compas.enumerated() {
+    // Cada nota sona quan tocava la de després: s'ha quedat una nota enrere.
+    if index > 0 { behind.heard(midi: compas[index - 1].midi, at: at) }
+    at += tone.beats * 0.909
+}
+behind.close(upTo: .infinity)
+verify("Anar una nota enrere no es diu tecla equivocada", !behind.passed && !behind.verdict.contains("Has tocat"))
+let oneLate = perform(compas, beat: 0.909, offset: 0, skip: [3], extraAt: [])
+var lateOnce = RhythmJudge(tones: compas, beat: 0.909)
+var t = 0.0
+for (index, tone) in compas.enumerated() {
+    lateOnce.heard(midi: tone.midi, at: t + (index == 3 ? 0.35 : 0))
+    t += tone.beats * 0.909
+}
+lateOnce.close(upTo: .infinity)
+verify("Una sola nota tard en dotze compta com un error, i es perdona", lateOnce.errors == 1 && lateOnce.passed && oneLate.errors == 1)
+var corrected = RhythmJudge(tones: four, beat: 1)
+for time in [0.0, 1.0, 1.6, 2.0, 3.0] { corrected.heard(midi: 60, at: time) }
+corrected.close(upTo: .infinity)
+verify("Tocar massa aviat i després al seu moment: un sol error", corrected.errors == 1 && corrected.toneMarks == [.hit, .hit, .hit, .hit])
+
 print("Curs")
 for lesson in Course.allLessons {
     for step in lesson.steps {
