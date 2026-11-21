@@ -148,14 +148,16 @@ struct LessonView: View {
         if compact {
             HStack(alignment: .top, spacing: 16) {
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 10) {
-                        stepWords
-                        stepStatus
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    stepWords
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                VStack(spacing: 8) { footerButtons }
-                    .frame(width: 230)
+                .scrollIndicatorsFlash(trigger: runner.stepIndex)
+                // El pols, la velocitat i el que diu l'app, sempre a la vista al costat dels botons.
+                VStack(alignment: .leading, spacing: 8) {
+                    stepStatus
+                    footerButtons
+                }
+                .frame(width: 250)
             }
             .padding(.horizontal, 22)
             .padding(.top, 2)
@@ -168,7 +170,6 @@ struct LessonView: View {
                     if case .look(_, .symbol(let name)) = runner.step { symbolPicture(name) }
                     stepText
                     stepChips
-                    stepStatus
                 }
                 .padding(.horizontal, 22)
                 .padding(.top, 18)
@@ -176,6 +177,14 @@ struct LessonView: View {
                 .frame(maxWidth: 640, alignment: .leading)
                 .frame(maxWidth: .infinity)
             }
+            .scrollIndicatorsFlash(trigger: runner.stepIndex)
+            // El pols, la velocitat i el que diu l'app queden fixos sobre el teclat: no es poden quedar tapats.
+            VStack(alignment: .leading, spacing: 8) { stepStatus }
+                .padding(.horizontal, 22)
+                .padding(.vertical, 6)
+                .frame(maxWidth: 640, alignment: .leading)
+                .frame(maxWidth: .infinity)
+                .background(Theme.paper)
             touchKeyboard
                 .frame(height: 240)
             footer
@@ -327,9 +336,8 @@ struct LessonView: View {
                 HStack(spacing: 14) {
                     pulseDots
                     if rounds > 1 { roundDots(rounds) }
-                    Spacer(minLength: 0)
-                    speedPicker
                 }
+                speedPicker
                 if runner.message.isEmpty {
                     Text(pulseText.isEmpty ? " " : pulseText)
                         .font(.subheadline.weight(.medium))

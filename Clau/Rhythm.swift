@@ -102,8 +102,9 @@ struct RhythmJudge {
                 presses.append((midi, time, "nota \(index + 1)"))
                 return .hit
             }
-            // És la tecla de la nota d'abans o de la de després: s'ha tocat a deshora, no s'ha equivocat de tecla.
-            if let neighbour = neighbour(of: index, pitchClass: pitchClass, at: time) {
+            // És la tecla d'una nota d'abans que encara no ha sonat: va endarrerit, no s'ha equivocat de tecla.
+            // La de la nota següent no compta així: quan cau just al cop, el més normal és haver relliscat a la tecla del costat.
+            if let neighbour = neighbour(of: index, pitchClass: pitchClass, at: time, behindOnly: true) {
                 playedOffTime(neighbour, midi: midi, at: time)
                 return nil
             }
@@ -146,8 +147,8 @@ struct RhythmJudge {
 
     /// Una nota de prop (fins a dues abans o després), si és d'aquesta tecla i encara es pot tocar: qui va avançat o endarrerit
     /// dins de la melodia. Com a molt, a la distància que hi ha entre les dues notes (més el marge). Primer les més properes.
-    private func neighbour(of index: Int, pitchClass: Int, at time: Double) -> Int? {
-        [index - 1, index + 1, index - 2, index + 2].first { other in
+    private func neighbour(of index: Int, pitchClass: Int, at time: Double, behindOnly: Bool = false) -> Int? {
+        (behindOnly ? [index - 1, index - 2] : [index - 1, index + 1, index - 2, index + 2]).first { other in
             notes.indices.contains(other) && isOpen(other) && notes[other].pitchClass == pitchClass
                 && abs(time - notes[other].time) <= abs(notes[other].time - notes[index].time) + tolerance
         }
@@ -204,22 +205,22 @@ struct RhythmJudge {
     }
 
     /// Si s'han tocat les notes seguides, però a un tempo propi diferent del pols: quant més llarg és cada cop (1,1 = un 10 % més lent).
+    /// Ha de passar a gairebé tots els intervals: escurçar una sola blanca no és portar un altre tempo.
     var ownTempo: Double? {
         let count = min(presses.count, notes.count)
-        guard count >= 4, abs(presses.count - notes.count) <= 1 else { return nil }
-        let x = notes.prefix(count).map(\.time)
-        let y = presses.prefix(count).map(\.time)
-        guard let first = x.first, let last = x.last, last - first >= 2 * beat else { return nil }
-        let mx = x.reduce(0, +) / Double(count), my = y.reduce(0, +) / Double(count)
-        let sxy = zip(x, y).reduce(0) { $0 + ($1.0 - mx) * ($1.1 - my) }
-        let sxx = x.reduce(0) { $0 + ($1 - mx) * ($1 - mx) }
-        guard sxx > 0 else { return nil }
-        let slope = sxy / sxx
-        let intercept = my - slope * mx
-        // Ha de ser un tempo regular: cada toc a prop de la recta.
-        let fits = zip(x, y).allSatisfy { abs($1 - (intercept + slope * $0)) <= max(tolerance, 0.25 * beat) }
-        guard fits, abs(slope - 1) > 0.08 else { return nil }
-        return slope
+        guard count >= 5, abs(presses.count - notes.count) <= 1 else { return nil }
+        var ratios: [Double] = []
+        for i in 1..<count {
+            let wanted = notes[i].time - notes[i - 1].time
+            let played = presses[i].time - presses[i - 1].time
+            if wanted > 0 { ratios.append(played / wanted) }
+        }
+        guard ratios.count >= 4 else { return nil }
+        let median = ratios.sorted()[ratios.count / 2]
+        guard abs(median - 1) > 0.08 else { return nil }
+        let sameSide = ratios.filter { median > 1 ? $0 > 1.04 : $0 < 0.96 }.count
+        guard Double(sameSide) >= 0.7 * Double(ratios.count) else { return nil }
+        return median
     }
 
     /// Per al registre: què s'esperava i què s'ha tocat, amb els temps en segons.
@@ -241,8 +242,8 @@ struct RhythmJudge {
         }
         if let ratio = ownTempo {
             return ratio < 1
-                ? "Vas més de pressa que el pols. Escolta el clic i fes que cada nota caigui just amb ell."
-                : "Vas més a poc a poc que el pols. Escolta el clic i fes que cada nota caigui just amb ell."
+                ? "Vas més de pressa que el pols. Segueix el pols: cada nota just quan toca el cop."
+                : "Vas més a poc a poc que el pols. Segueix el pols: cada nota just quan toca el cop."
         }
         if let cutShort {
             let beats = Int(cutShort.beats)

@@ -193,6 +193,31 @@ for time in [0.0, 1.0, 1.6, 2.0, 3.0] { corrected.heard(midi: 60, at: time) }
 corrected.close(upTo: .infinity)
 verify("Tocar massa aviat i després al seu moment: un sol error", corrected.errors == 1 && corrected.toneMarks == [.hit, .hit, .hit, .hit])
 
+// Afegits per la revisió 2026-11-21-2 (el provador): casos que el jutge nou no fa bé.
+// Tecla veïna a temps, que és la de la nota següent (re on anava do, a do-re-mi): és una tecla equivocada, no un toc avançat.
+let stepwise = [60, 62, 64, 65].map { Tone(midi: $0) }
+let slip = perform(stepwise, beat: 1, wrongAt: [0])
+verify("Tecla de la nota següent, a temps: un error i diu la tecla", slip.errors == 1 && slip.verdict.contains("Has tocat re on anava do"))
+var slip22 = RhythmJudge(tones: compas, beat: 0.909)
+var t22 = 0.0
+for (index, tone) in compas.enumerated() {
+    slip22.heard(midi: index == 1 ? 64 : tone.midi, at: t22)   // la nota 2 (re) amb el mi
+    t22 += tone.beats * 0.909
+}
+slip22.close(upTo: .infinity)
+verify("L22: una tecla veïna en dotze notes es perdona, com abans", slip22.errors == 1 && slip22.passed)
+// Mentre toca, l'app marca la nota que ve. Després d'una relliscada no s'ha de saltar la nota que toca ara.
+var hint = RhythmJudge(tones: stepwise, beat: 1)
+hint.heard(midi: 62, at: 0)
+hint.close(upTo: 1)
+verify("Després de tocar re on anava do, al cop 2 l'app marca el re", hint.nextToneIndex == 1)
+// Una sola nota avançada al final d'un ritme curt no és un tempo propi.
+let unITresProva = [60, 64, 60, 64].map { Tone(midi: $0, beats: 2) }
+var lastEarly = RhythmJudge(tones: unITresProva, beat: 1)
+for (index, time) in [0.0, 2.0, 4.0, 5.3].enumerated() { lastEarly.heard(midi: unITresProva[index].midi, at: time) }
+lastEarly.close(upTo: .infinity)
+verify("Escurçar l'última blanca no es diu «vas més de pressa que el pols»", !lastEarly.verdict.contains("que el pols"))
+
 print("Curs")
 for lesson in Course.allLessons {
     for step in lesson.steps {

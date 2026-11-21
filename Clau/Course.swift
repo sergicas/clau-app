@@ -703,7 +703,7 @@ enum Course {
             .listen(text: "Segueix-la amb la vista mentre sona.", tones: compasA, bpm: 69,
                     keyboard: keyboard(Score(tones: compasA, bars: true)), pulse: true),
             read("Abans del pols, només les notes, sense pressa.", compasA, rounds: 1, bars: true),
-            .rhythm(text: "Ara només el ritme, tot amb el do. No pensis en les notes: escolta el clic i fes que cada do caigui just amb ell. Les blanques duren dos clics.",
+            .rhythm(text: "Ara només el ritme, tot amb el do. No pensis en les notes: fes que cada do caigui just amb el pols. Les blanques duren dos cops.",
                     tones: compasRitme, bpm: 66, rounds: 1,
                     keyboard: keyboard(Score(tones: compasRitme, counts: true, bars: true))),
             .rhythm(text: "Ara els dos primers compassos amb el pols. Sota cada nota s'encén un punt a cada cop: canvia de nota quan s'encén el primer punt de la següent.",

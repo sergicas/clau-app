@@ -169,7 +169,7 @@ struct StaffView: View {
 
         if score.clef {
             for staff in staves { drawClef(for: staff, in: &context, x: left + 0.3 * s) }
-            left += 3.5 * s
+            left += 3.8 * s
         } else {
             left += 0.8 * s
         }

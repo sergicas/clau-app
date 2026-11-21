@@ -52,7 +52,7 @@ pas "Ritmes tocats de debò a l'app del Mac (últims 7 dies)"
 echo "  $(grep -c 'lliçó' "$OUT/registre.txt") intents; $(grep -c 'BÉ' "$OUT/registre.txt") bé, $(grep -c 'MAL' "$OUT/registre.txt") malament" | tee -a "$RESUM"
 
 pas "iPhone connectat"
-if xcrun xctrace list devices 2>/dev/null | sed -n '/== Devices ==/,/== Simulators ==/p' | grep -q "00008140-001154DA2EE3001C"; then
+if xcrun devicectl list devices 2>/dev/null | grep "00008140-001154DA2EE3001C" | grep -qE "available|connected"; then
   echo "  sí" | tee -a "$RESUM"
 else
   echo "  no (o no disponible): les proves d'interfície al telèfon no es poden passar" | tee -a "$RESUM"

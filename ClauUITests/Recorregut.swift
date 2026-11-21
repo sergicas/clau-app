@@ -202,6 +202,8 @@ final class Recorregut: XCTestCase {
 
         open(lesson: 22)
         tap("Continua"); capture("g11-l22-compassos")
+        tap("Continua"); tap("Ara jo"); tap("Salta aquest pas")
+        capture("g11b-l22-nomes-ritme")
         tap("Tanca la lliçó")
 
         XCUIDevice.shared.orientation = .landscapeLeft
@@ -246,6 +248,11 @@ final class Recorregut: XCTestCase {
 
         open(lesson: 28)
         tap("Continua"); tap("Ara jo"); capture("e05-l28-notes-llargues")
+        tap("Tanca la lliçó")
+
+        open(lesson: 29)
+        tap("Continua"); tap("Ara jo"); tap("Salta aquest pas")
+        capture("e05b-l29-negra-amb-punt")
         tap("Tanca la lliçó")
 
         open(lesson: 30)
