@@ -37,12 +37,20 @@ final class Recorregut: XCTestCase {
     }
 
     private func open(lesson number: Int) {
-        let row = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Lliçó \(number),")).firstMatch
-        XCTAssertTrue(row.waitForExistence(timeout: 5), "No trobo la lliçó \(number)")
-        // La llista és llarga: es busca cap avall i, si no hi és, cap amunt.
-        for _ in 0..<6 where !row.isHittable { app.swipeUp(velocity: .slow) }
-        for _ in 0..<12 where !row.isHittable { app.swipeDown(velocity: .slow) }
-        row.tap()
+        // Amb el telèfon pla damunt la taula, la llista es pot moure mentre es toca i obrir-se'n una altra:
+        // es comprova que s'ha obert la bona i, si no, es torna enrere i es prova de nou.
+        for _ in 0..<3 {
+            let row = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Lliçó \(number),")).firstMatch
+            XCTAssertTrue(row.waitForExistence(timeout: 5), "No trobo la lliçó \(number)")
+            // La llista és llarga: es busca cap avall i, si no hi és, cap amunt.
+            for _ in 0..<6 where !row.isHittable { app.swipeUp(velocity: .slow) }
+            for _ in 0..<12 where !row.isHittable { app.swipeDown(velocity: .slow) }
+            row.tap()
+            if app.staticTexts["Lliçó \(number)"].waitForExistence(timeout: 5) { return }
+            let close = app.buttons["Tanca la lliçó"].firstMatch
+            if close.exists { close.tap() }
+        }
+        XCTFail("No s'ha obert la lliçó \(number)")
     }
 
     func testAmbPiano() {
@@ -198,6 +206,7 @@ final class Recorregut: XCTestCase {
         open(lesson: 21)
         capture("g09-l21-figures")
         tap("Continua"); tap("Ara jo"); capture("g10-l21-ritme-llegit")
+        tap("Comença"); sleep(3); capture("g10b-l21-sonant")
         tap("Tanca la lliçó")
 
         open(lesson: 22)

@@ -251,13 +251,13 @@ struct StaffView: View {
         }
     }
 
-    /// Un punt per cada cop que dura la nota. S'omplen a mesura que passa el pols.
+    /// Un punt gran per cada cop sencer que dura la nota, i un de petit per al mig cop
+    /// (la negra amb punt: un de gran i un de petit). S'omplen a mesura que passa el pols.
     private func drawPips(for index: Int, in context: inout GraphicsContext, x: CGFloat) {
         let tone = score.tones[index]
         let start = score.tones.prefix(index).reduce(0) { $0 + $1.beats }
-        let half = tone.beats < 1
-        let pips = max(1, Int(tone.beats.rounded(.up)))
-        let radius = (half ? 0.2 : 0.3) * s
+        let whole = Int(tone.beats + 0.001)
+        let pips = tone.beats - Double(whole) > 0.01 ? whole + 1 : max(whole, 1)
         let gap = 0.85 * s
         let y = bottomLine + 2.9 * s
         let first = x - CGFloat(pips - 1) * gap / 2
@@ -266,6 +266,7 @@ struct StaffView: View {
         let now = beat.map { total > 0 ? $0.truncatingRemainder(dividingBy: total) : $0 }
 
         for pip in 0..<pips {
+            let radius = (pip < whole ? 0.3 : 0.2) * s
             let rect = CGRect(x: first + CGFloat(pip) * gap - radius, y: y - radius, width: 2 * radius, height: 2 * radius)
             let path = Path(ellipseIn: rect)
             if let now, now >= start + Double(pip), now < start + tone.beats {
@@ -312,8 +313,8 @@ struct StaffView: View {
         for ledger in ledgers {
             var path = Path()
             let ledgerY = y(ofStep: ledger, in: staff)
-            path.move(to: CGPoint(x: x - 0.78 * s, y: ledgerY))
-            path.addLine(to: CGPoint(x: x + 0.78 * s, y: ledgerY))
+            path.move(to: CGPoint(x: x - 0.95 * s, y: ledgerY))
+            path.addLine(to: CGPoint(x: x + 0.95 * s, y: ledgerY))
             context.stroke(path, with: .color(Theme.soft), lineWidth: max(1, s * 0.09))
         }
 

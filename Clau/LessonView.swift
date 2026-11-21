@@ -161,8 +161,10 @@ struct LessonView: View {
             }
             .padding(.horizontal, 22)
             .padding(.top, 2)
-            touchKeyboard
-                .frame(height: 178)
+            if showsKeyboard {
+                touchKeyboard
+                    .frame(height: 178)
+            }
         } else {
             // Si el text és llarg, la partitura queda mig amagada a sota: quan comença a sonar, s'hi va sola.
             ScrollViewReader { proxy in
@@ -200,10 +202,18 @@ struct LessonView: View {
                 .frame(maxWidth: 640, alignment: .leading)
                 .frame(maxWidth: .infinity)
                 .background(Theme.paper)
-            touchKeyboard
-                .frame(height: 240)
+            if showsKeyboard {
+                touchKeyboard
+                    .frame(height: 240)
+            }
             footer
         }
+    }
+
+    /// Quan només es mira una partitura, el teclat no hi diu res i li pren el lloc: no surt.
+    private var showsKeyboard: Bool {
+        if case .look(_, .staff) = runner.step { return false }
+        return true
     }
 
     private func showScore(_ proxy: ScrollViewProxy) {

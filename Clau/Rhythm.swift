@@ -37,6 +37,11 @@ struct RhythmJudge {
     private var offTime: Set<Int> = []
     /// D'aquestes, les que s'han tocat abans d'hora: encara es poden tocar bé al seu moment.
     private var earlyClaims: Set<Int> = []
+    /// Tecles equivocades seguides que són la de la nota de després (o la d'abans): qui s'ha perdut a la partitura.
+    private var aheadRun = 0
+    private var behindRun = 0
+    private var lostAhead = false
+    private var lostBehind = false
 
     /// `slack` afegeix marge, per quan les notes arriben pel micròfon.
     init(tones: [Tone], beat: Double, slack: Double = 0) {
@@ -99,6 +104,8 @@ struct RhythmJudge {
         if marks[index] == .pending, distance <= tolerance {
             if pitchClass == notes[index].pitchClass {
                 marks[index] = .hit
+                aheadRun = 0
+                behindRun = 0
                 presses.append((midi, time, "nota \(index + 1)"))
                 return .hit
             }
@@ -110,6 +117,13 @@ struct RhythmJudge {
             }
             marks[index] = .wrong
             if firstWrong == nil { firstWrong = (midi, notes[index].pitchClass) }
+            // Tres o més seguides amb la tecla de la nota següent (o de l'anterior): no és una relliscada, és que s'ha perdut.
+            let next = index + 1 < notes.count && notes[index + 1].pitchClass == pitchClass
+            let previous = index > 0 && notes[index - 1].pitchClass == pitchClass
+            aheadRun = next ? aheadRun + 1 : 0
+            behindRun = previous ? behindRun + 1 : 0
+            if aheadRun >= 3 { lostAhead = true }
+            if behindRun >= 3 { lostBehind = true }
             presses.append((midi, time, "nota \(index + 1), tecla equivocada"))
             return .wrong
         }
@@ -146,11 +160,12 @@ struct RhythmJudge {
     }
 
     /// Una nota de prop (fins a dues abans o després), si és d'aquesta tecla i encara es pot tocar: qui va avançat o endarrerit
-    /// dins de la melodia. Com a molt, a la distància que hi ha entre les dues notes (més el marge). Primer les més properes.
+    /// dins de la melodia. Com a molt, a la distància que hi ha entre les dues notes, i mai més de dos cops (més el marge):
+    /// una nota tocada quatre cops tard no és aquella nota. Primer les més properes.
     private func neighbour(of index: Int, pitchClass: Int, at time: Double, behindOnly: Bool = false) -> Int? {
         (behindOnly ? [index - 1, index - 2] : [index - 1, index + 1, index - 2, index + 2]).first { other in
             notes.indices.contains(other) && isOpen(other) && notes[other].pitchClass == pitchClass
-                && abs(time - notes[other].time) <= abs(notes[other].time - notes[index].time) + tolerance
+                && abs(time - notes[other].time) <= min(abs(notes[other].time - notes[index].time), 2 * beat) + tolerance
         }
     }
 
@@ -244,6 +259,12 @@ struct RhythmJudge {
             return ratio < 1
                 ? "Vas més de pressa que el pols. Segueix el pols: cada nota just quan toca el cop."
                 : "Vas més a poc a poc que el pols. Segueix el pols: cada nota just quan toca el cop."
+        }
+        if lostAhead {
+            return "Vas una nota per davant de la partitura. Toca la nota que s'encén, just amb el cop."
+        }
+        if lostBehind {
+            return "Vas una nota endarrerit. Toca la nota que s'encén, just amb el cop."
         }
         if let cutShort {
             let beats = Int(cutShort.beats)

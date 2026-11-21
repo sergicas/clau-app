@@ -218,6 +218,20 @@ for (index, time) in [0.0, 2.0, 4.0, 5.3].enumerated() { lastEarly.heard(midi: u
 lastEarly.close(upTo: .infinity)
 verify("Escurçar l'última blanca no es diu «vas més de pressa que el pols»", !lastEarly.verdict.contains("que el pols"))
 
+// Revisió 2026-11-21-3: qui toca a cada cop la tecla de la nota següent s'ha perdut a la partitura; dir-li la tecla no l'ajuda.
+let escala = [60, 62, 64, 65, 67, 65, 64, 62].map { Tone(midi: $0) }
+var ahead = RhythmJudge(tones: escala, beat: 1)
+for index in 0..<(escala.count - 1) { ahead.heard(midi: escala[index + 1].midi, at: Double(index)) }
+ahead.close(upTo: .infinity)
+verify("Una nota per davant tota l'estona: ho diu", !ahead.passed && ahead.verdict.contains("una nota per davant"))
+// Una nota tocada quatre cops tard no és aquella nota: el marge per a les notes del costat és de dos cops com a molt.
+let llarga = [Tone(midi: 62), Tone(midi: 60, beats: 4), Tone(midi: 64)]
+var farLate = RhythmJudge(tones: llarga, beat: 1)
+farLate.heard(midi: 60, at: 1)
+farLate.heard(midi: 62, at: 5)   // el re de la nota 1, quatre cops tard, on anava el mi
+farLate.close(upTo: .infinity)
+verify("Una nota no es reconeix quatre cops després del seu moment", farLate.verdict.contains("Has tocat re on anava mi"))
+
 print("Curs")
 for lesson in Course.allLessons {
     for step in lesson.steps {

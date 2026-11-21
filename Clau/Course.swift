@@ -555,8 +555,8 @@ enum Course {
     }
 
     /// Tocar llegint, sense pols. No hi pot haver silencis.
-    private static func read(_ text: String, _ tones: [Tone], rounds: Int = 2, names: Bool = false, clef: Bool = true, bars: Bool = false) -> Step {
-        let score = Score(tones: tones, clef: clef, names: names, bars: bars)
+    private static func read(_ text: String, _ tones: [Tone], rounds: Int = 2, names: Bool = false, clef: Bool = true, bars: Bool = false, ends: Bool = true) -> Step {
+        let score = Score(tones: tones, clef: clef, names: names, bars: bars, ends: ends)
         let goals = tones.map { Goal(accept: .named(Music.pitchClass($0.midi)), label: Music.name($0.midi), key: names ? $0.midi : nil) }
         return .play(text: text, goals: goals, rounds: rounds, keyboard: keyboard(score), distinct: false)
     }
@@ -687,7 +687,8 @@ enum Course {
     // 22
     private static let compasA: [Tone] = tones([C, D, E, F]) + [long(G, 2), long(E, 2)] + tones([F, F, E, E]) + [long(D, 2), long(C, 2)]
     /// El ritme de `compasA`, tot amb el do: per escoltar el clic sense haver de llegir.
-    private static let compasRitme: [Tone] = compasA.map { Tone(midi: C, beats: $0.beats) }
+    /// Els dos primers compassos, tot amb el do: només el ritme, quatre negres i dues blanques.
+    private static let compasRitme: [Tone] = compasA.prefix(6).map { Tone(midi: C, beats: $0.beats) }
     private static let compasB: [Tone] = [long(E, 2), long(G, 2)] + tones([F, E]) + [long(D, 2)] + tones([C, D, E, F]) + [long(E, 4)]
 
     static let compas = Lesson(
@@ -705,8 +706,8 @@ enum Course {
             read("Abans del pols, només les notes, sense pressa.", compasA, rounds: 1, bars: true),
             .rhythm(text: "Ara només el ritme, tot amb el do. No pensis en les notes: fes que cada do caigui just amb el pols. Les blanques duren dos cops.",
                     tones: compasRitme, bpm: 66, rounds: 1,
-                    keyboard: keyboard(Score(tones: compasRitme, counts: true, bars: true))),
-            .rhythm(text: "Ara els dos primers compassos amb el pols. Sota cada nota s'encén un punt a cada cop: canvia de nota quan s'encén el primer punt de la següent.",
+                    keyboard: keyboard(Score(tones: compasRitme, counts: true, bars: true, ends: false))),
+            .rhythm(text: "El mateix ritme, ara amb les notes. Sota cada nota s'encén un punt a cada cop: canvia de nota quan s'encén el primer punt de la següent.",
                     tones: Array(compasA.prefix(6)), bpm: 66, rounds: 1,
                     keyboard: keyboard(Score(tones: Array(compasA.prefix(6)), counts: true, bars: true, ends: false))),
             .rhythm(text: "Ara sencera. Les blanques s'aguanten fins que s'han encès els dos punts.", tones: compasA, bpm: 66, rounds: 1,
@@ -754,7 +755,7 @@ enum Course {
         steps: [
             .look(text: "La peça d'aquesta etapa no l'escoltaràs abans: la llegiràs. És el començament d'Au clair de la lune, una cançó francesa molt antiga.",
                   picture: .staff(Score(tones: llunaTota, bars: true))),
-            read("Els dos primers compassos, només les notes.", llunaA, bars: true),
+            read("Els dos primers compassos, només les notes.", llunaA, bars: true, ends: false),
             read("Els dos últims.", llunaB, bars: true),
             .rhythm(text: "Ara sencera, amb el pols.", tones: llunaTota, bpm: 66, rounds: 2,
                     keyboard: keyboard(Score(tones: llunaTota, counts: true, bars: true))),
