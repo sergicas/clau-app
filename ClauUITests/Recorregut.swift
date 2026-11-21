@@ -204,6 +204,8 @@ final class Recorregut: XCTestCase {
         tap("Continua"); capture("g11-l22-compassos")
         tap("Continua"); tap("Ara jo"); tap("Salta aquest pas")
         capture("g11b-l22-nomes-ritme")
+        // En començar, la partitura ha de quedar sencera a la vista encara que el text sigui llarg.
+        tap("Comença"); sleep(3); capture("g11c-l22-sonant")
         tap("Tanca la lliçó")
 
         XCUIDevice.shared.orientation = .landscapeLeft

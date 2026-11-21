@@ -164,20 +164,35 @@ struct LessonView: View {
             touchKeyboard
                 .frame(height: 178)
         } else {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
-                    stepHeading
-                    if case .look(_, .symbol(let name)) = runner.step { symbolPicture(name) }
-                    stepText
-                    stepChips
+            // Si el text és llarg, la partitura queda mig amagada a sota: quan comença a sonar, s'hi va sola.
+            ScrollViewReader { proxy in
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 18) {
+                        stepHeading
+                            .id("dalt")
+                        if case .look(_, .symbol(let name)) = runner.step { symbolPicture(name) }
+                        stepText
+                        stepChips
+                            .id("partitura")
+                    }
+                    .padding(.horizontal, 22)
+                    .padding(.top, 18)
+                    .padding(.bottom, 12)
+                    .frame(maxWidth: 640, alignment: .leading)
+                    .frame(maxWidth: .infinity)
                 }
-                .padding(.horizontal, 22)
-                .padding(.top, 18)
-                .padding(.bottom, 12)
-                .frame(maxWidth: 640, alignment: .leading)
-                .frame(maxWidth: .infinity)
+                .scrollIndicatorsFlash(trigger: runner.stepIndex)
+                .onChange(of: runner.stepIndex) { proxy.scrollTo("dalt", anchor: .top) }
+                .onChange(of: runner.rhythmPhase) { _, phase in
+                    if phase != .idle { showScore(proxy) }
+                }
+                .onChange(of: runner.isPlaying) { _, playing in
+                    if playing { showScore(proxy) }
+                }
+                .onChange(of: runner.goalIndex) { _, index in
+                    if index > 0 { showScore(proxy) }
+                }
             }
-            .scrollIndicatorsFlash(trigger: runner.stepIndex)
             // El pols, la velocitat i el que diu l'app queden fixos sobre el teclat: no es poden quedar tapats.
             VStack(alignment: .leading, spacing: 8) { stepStatus }
                 .padding(.horizontal, 22)
@@ -189,6 +204,10 @@ struct LessonView: View {
                 .frame(height: 240)
             footer
         }
+    }
+
+    private func showScore(_ proxy: ScrollViewProxy) {
+        withAnimation(.easeOut(duration: 0.3)) { proxy.scrollTo("partitura", anchor: .bottom) }
     }
 
     private var touchKeyboard: some View {
@@ -345,6 +364,19 @@ struct LessonView: View {
                 } else {
                     screenStatus
                 }
+            } else if onScreen {
+                // Dret, el rètol del pols va a sota: al costat de la velocitat no hi cap.
+                if rounds > 1 { roundDots(rounds) }
+                HStack {
+                    pulseDots
+                    Spacer(minLength: 8)
+                    speedPicker
+                }
+                if runner.message.isEmpty {
+                    pulseLine
+                } else {
+                    screenStatus
+                }
             } else {
                 if rounds > 1 { roundDots(rounds) }
                 HStack {
@@ -352,13 +384,22 @@ struct LessonView: View {
                     Spacer(minLength: 8)
                     speedPicker
                 }
-                if onScreen { screenStatus } else { listeningRow }
+                listeningRow
             }
         case .listen(_, _, _, _, let pulse):
-            HStack {
-                if pulse { pulseRow }
-                Spacer(minLength: 8)
-                speedPicker
+            if onScreen && !compact {
+                HStack {
+                    if pulse { pulseDots }
+                    Spacer(minLength: 8)
+                    speedPicker
+                }
+                if pulse { pulseLine }
+            } else {
+                HStack {
+                    if pulse { pulseRow }
+                    Spacer(minLength: 8)
+                    speedPicker
+                }
             }
         case .look:
             EmptyView()
@@ -376,6 +417,8 @@ struct LessonView: View {
                 } label: {
                     Text(speed.label)
                         .font(.subheadline.weight(chosen ? .bold : .medium))
+                        .lineLimit(1)
+                        .fixedSize()
                         .foregroundStyle(chosen ? Theme.card : Theme.ink)
                         .padding(.horizontal, compact ? 8 : 11)
                         .padding(.vertical, compact ? 4 : 6)
@@ -405,6 +448,15 @@ struct LessonView: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(pulseText.isEmpty ? "Pols" : pulseText)
         .accessibilityIdentifier("pols")
+    }
+
+    /// El rètol del pols en una ratlla a part; buit, guarda el lloc perquè res no salti.
+    private var pulseLine: some View {
+        Text(pulseText.isEmpty ? " " : pulseText)
+            .font(.subheadline.weight(.medium))
+            .foregroundStyle(Theme.soft)
+            .accessibilityLabel(pulseText.isEmpty ? "Pols" : pulseText)
+            .accessibilityIdentifier("pols")
     }
 
     private var pulseDots: some View {
