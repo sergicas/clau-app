@@ -232,6 +232,34 @@ farLate.heard(midi: 62, at: 5)   // el re de la nota 1, quatre cops tard, on ana
 farLate.close(upTo: .infinity)
 verify("Una nota no es reconeix quatre cops després del seu moment", farLate.verdict.contains("Has tocat re on anava mi"))
 
+// Revisió 2026-11-22: qui té la mà una tecla desplaçada toca a temps, però cada nota una tecla amunt (o avall).
+// En una melodia que puja o baixa per graus és la tecla de la nota següent (o de l'anterior), però no s'ha perdut a la partitura.
+let odaGraus = [64, 64, 65, 67, 67, 65, 64, 62].map { Tone(midi: $0) }
+let tecla = [60: 62, 62: 64, 64: 65, 65: 67, 67: 69]
+var shifted = RhythmJudge(tones: odaGraus, beat: 1)
+for (index, tone) in odaGraus.enumerated() { shifted.heard(midi: tecla[tone.midi]!, at: Double(index)) }
+shifted.close(upTo: .infinity)
+verify("Mà una tecla amunt, a temps: no es diu «vas una nota endarrerit»", !shifted.verdict.contains("una nota"))
+verify("Mà una tecla amunt, a temps: diu que toca una tecla més amunt", shifted.verdict.contains("una tecla més amunt"))
+var shiftedDown = RhythmJudge(tones: odaGraus, beat: 1)
+let teclaAvall = [62: 60, 64: 62, 65: 64, 67: 65]
+for (index, tone) in odaGraus.enumerated() { shiftedDown.heard(midi: teclaAvall[tone.midi]!, at: Double(index)) }
+shiftedDown.close(upTo: .infinity)
+verify("Mà una tecla avall, a temps: diu que toca una tecla més avall", shiftedDown.verdict.contains("una tecla més avall"))
+// Do, re, mi, fa, sol amb la mà amunt: el la de l'última nota no és de cap nota següent, i la mà ho explica tot.
+let escalaCinc = [60, 62, 64, 65, 67].map { Tone(midi: $0) }
+var ambigu = RhythmJudge(tones: escalaCinc, beat: 1)
+for (index, tone) in escalaCinc.enumerated() { ambigu.heard(midi: tecla[tone.midi]!, at: Double(index)) }
+ambigu.close(upTo: .infinity)
+verify("Do re mi fa sol una tecla amunt: és la mà, no que vagi per davant", ambigu.verdict.contains("una tecla més amunt"))
+// Qui escurça les blanques i després va un cop avançat: el que ha passat és la blanca, no que s'hagi perdut.
+let blanques = [Tone(midi: 64, beats: 2), Tone(midi: 67, beats: 2), Tone(midi: 65), Tone(midi: 64), Tone(midi: 62, beats: 2),
+                Tone(midi: 60), Tone(midi: 62), Tone(midi: 64), Tone(midi: 65), Tone(midi: 64, beats: 4)]
+var rushed = RhythmJudge(tones: blanques, beat: 1)
+for (midi, time) in [(64, 0.0), (67, 1.5), (65, 3), (64, 4), (62, 5), (60, 7), (62, 8), (64, 9), (65, 10), (64, 11)] { rushed.heard(midi: midi, at: time) }
+rushed.close(upTo: .infinity)
+verify("Blanques escurçades i després un cop avançat: es parla de la blanca", rushed.verdict.contains("dura 2 cops"))
+
 print("Curs")
 for lesson in Course.allLessons {
     for step in lesson.steps {
