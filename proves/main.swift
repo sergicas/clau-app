@@ -260,6 +260,32 @@ for (midi, time) in [(64, 0.0), (67, 1.5), (65, 3), (64, 4), (62, 5), (60, 7), (
 rushed.close(upTo: .infinity)
 verify("Blanques escurçades i després un cop avançat: es parla de la blanca", rushed.verdict.contains("dura 2 cops"))
 
+// Revisió 2026-11-23: a do, re, mi, fa, sol, qui va una nota per davant no toca res a l'últim cop (o hi toca el sol, que és bo);
+// qui té la mà desplaçada hi toca el la. L'última nota les separa: amb la mà, una tecla amunt més que tecles «de la nota següent».
+var aheadCinc = RhythmJudge(tones: escalaCinc, beat: 1)
+for index in 0..<(escalaCinc.count - 1) { aheadCinc.heard(midi: escalaCinc[index + 1].midi, at: Double(index)) }
+aheadCinc.close(upTo: .infinity)
+verify("Do re mi fa sol una nota per davant (re mi fa sol i res): diu «per davant», no la mà", aheadCinc.verdict.contains("una nota per davant"))
+// Qui corre (tempo un 6 % més ràpid) i escurça la blanca: de debò, L24 pas 6 a velocitat lenta, de l'alumne simulat «ritme propi».
+// Va avançat tota l'estona, però com que ha escurçat la blanca abans de perdre's, el «per davant» calla i surt «endarrerit».
+let l24 = Course.allLessons.first { $0.number == 24 }!
+if case .rhythm(_, let tones24, let bpm24, _, _) = l24.steps[5] {
+    var corre = RhythmJudge(tones: tones24, beat: 60 / (bpm24 * 0.8))
+    let tocat: [(Int, Double)] = [(60, 0.12), (60, 0.91), (60, 1.93), (62, 2.74), (64, 3.76), (62, 5.60), (60, 7.42), (64, 8.35), (62, 9.35),
+                                  (62, 10.26), (60, 11.21), (60, 14.94), (60, 15.86), (60, 16.76), (62, 17.68), (64, 18.51), (62, 19.77),
+                                  (60, 21.06), (64, 21.85), (62, 22.97), (62, 23.77), (60, 24.76)]
+    for (midi, time) in tocat { corre.heard(midi: midi, at: time) }
+    corre.close(upTo: .infinity)
+    verify("Qui corre i escurça la blanca no rep «vas una nota endarrerit»", !corre.verdict.contains("endarrerit"))
+}
+
+// Una sola nota repetida, tota una tecla amunt: es diu quina tecla tocava, que és el que no sap qui tot just ha après el do.
+let dos = Array(repeating: Tone(midi: 60), count: 6)
+var dosAmunt = RhythmJudge(tones: dos, beat: 1)
+for index in dos.indices { dosAmunt.heard(midi: 62, at: Double(index)) }
+dosAmunt.close(upTo: .infinity)
+verify("Tot el do amb el re: diu «Has tocat re on anava do»", dosAmunt.verdict.contains("Has tocat re on anava do"))
+
 print("Curs")
 for lesson in Course.allLessons {
     for step in lesson.steps {

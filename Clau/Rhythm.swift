@@ -44,6 +44,7 @@ struct RhythmJudge {
     private var lostBehind = false
     /// On ha començat la tira que ha fet dir que anava per davant: si abans ja havia escurçat una nota llarga, és això el que cal dir.
     private var lostAheadFrom: Int?
+    private var lostBehindFrom: Int?
     /// Quantes tecles equivocades s'expliquen per cada causa. Qui té la mà desplaçada una tecla toca, en una melodia que puja
     /// per graus, la tecla de la nota següent sense haver-se perdut: només es diu «per davant» si ho explica més que la mà.
     private var aheadKeys = 0
@@ -135,7 +136,7 @@ struct RhythmJudge {
             if pitchClass == Self.whiteKey(from: notes[index].pitchClass, step: 1) { upKeys += 1 }
             if pitchClass == Self.whiteKey(from: notes[index].pitchClass, step: -1) { downKeys += 1 }
             if aheadRun >= 3, !lostAhead { lostAhead = true; lostAheadFrom = index - 2 }
-            if behindRun >= 3 { lostBehind = true }
+            if behindRun >= 3, !lostBehind { lostBehind = true; lostBehindFrom = index - 2 }
             presses.append((midi, time, "nota \(index + 1), tecla equivocada"))
             return .wrong
         }
@@ -281,7 +282,9 @@ struct RhythmJudge {
         }
         // La mà desplaçada fa equivocar gairebé totes les notes, i sempre per la tecla del costat cap al mateix cantó.
         let handKeys = max(upKeys, downKeys)
-        if handKeys >= 3, 2 * handKeys >= notes.count, handKeys >= aheadKeys, handKeys >= behindKeys {
+        // Amb una sola nota repetida, «has tocat re on anava do» diu més: quina és la tecla bona.
+        let melody = Set(notes.map(\.pitchClass)).count >= 3
+        if melody, handKeys >= 3, 2 * handKeys >= notes.count, handKeys > aheadKeys, handKeys > behindKeys {
             return upKeys > downKeys
                 ? "Toques cada nota una tecla més amunt. Mira on ha d'anar la mà i torna-hi."
                 : "Toques cada nota una tecla més avall. Mira on ha d'anar la mà i torna-hi."
@@ -291,7 +294,8 @@ struct RhythmJudge {
         if lostAhead, !cutFirst {
             return "Vas una nota per davant de la partitura. Toca la nota que s'encén, just amb el cop."
         }
-        if lostBehind {
+        let cutBeforeBehind = cutShort.map { cut in lostBehindFrom.map { cut.note <= $0 } ?? false } ?? false
+        if lostBehind, !cutBeforeBehind {
             return "Vas una nota endarrerit. Toca la nota que s'encén, just amb el cop."
         }
         if let cutShort {

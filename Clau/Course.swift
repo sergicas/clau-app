@@ -673,7 +673,7 @@ enum Course {
                   picture: .staff(Score(tones: [Tone(midi: E), long(E, 2), long(E, 4)], counts: true))),
             .listen(text: "Dues negres, una blanca i una rodona.", tones: figuresExemple, bpm: 63,
                     keyboard: keyboard(Score(tones: figuresExemple, counts: true)), pulse: true),
-            .rhythm(text: "Toca-ho llegint. A sota de cada nota hi ha un punt per cada cop que dura: s'encenen amb el pols. La blanca s'aguanta dos cops i la rodona, quatre.", tones: figuresExemple, bpm: 63, rounds: 2,
+            .rhythm(text: "Toca-ho llegint. Sota cada nota, un punt per cop: s'encenen amb el pols.", tones: figuresExemple, bpm: 63, rounds: 2,
                     keyboard: keyboard(Score(tones: figuresExemple, counts: true))),
             .look(text: "La que porta un ganxo al pal dura mig cop: és la corxera. Dues corxeres fan un cop.",
                   picture: .staff(Score(tones: pair(E, E) + tones([E]), counts: true))),
