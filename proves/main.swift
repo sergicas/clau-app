@@ -286,6 +286,23 @@ for index in dos.indices { dosAmunt.heard(midi: 62, at: Double(index)) }
 dosAmunt.close(upTo: .infinity)
 verify("Tot el do amb el re: diu «Has tocat re on anava do»", dosAmunt.verdict.contains("Has tocat re on anava do"))
 
+// Escurça una blanca al principi, es refà i toca bé un bon tros, i més tard es perd una nota per davant: això és el que cal dir.
+let refet = [Tone(midi: 64), Tone(midi: 64), Tone(midi: 64, beats: 2)] + [60, 62, 64, 65, 67, 65, 64, 62, 60, 62, 64, 65, 67, 65, 64, 62].map { Tone(midi: $0) }
+var refetJudge = RhythmJudge(tones: refet, beat: 1)
+var refetTime = 0.0
+for (index, tone) in refet.enumerated() {
+    if index == 3 {
+        refetJudge.heard(midi: tone.midi, at: refetTime - 0.5)   // el do, mig cop abans: la blanca escurçada
+    } else if index < 11 || index + 1 >= refet.count {
+        refetJudge.heard(midi: tone.midi, at: refetTime)
+    } else {
+        refetJudge.heard(midi: refet[index + 1].midi, at: refetTime)   // ja va una nota per davant
+    }
+    refetTime += tone.beats
+}
+refetJudge.close(upTo: .infinity)
+verify("Blanca escurçada al principi, refet, i perdut més tard: diu «per davant»", refetJudge.verdict.contains("una nota per davant"))
+
 print("Curs")
 for lesson in Course.allLessons {
     for step in lesson.steps {

@@ -51,6 +51,9 @@ struct RhythmJudge {
     private var behindKeys = 0
     private var upKeys = 0
     private var downKeys = 0
+    /// La primera tecla desplaçada de cada cantó, per poder-la dir: (la que s'ha tocat, la que tocava).
+    private var firstUp: (heard: Int, wanted: Int)?
+    private var firstDown: (heard: Int, wanted: Int)?
 
     /// `slack` afegeix marge, per quan les notes arriben pel micròfon.
     init(tones: [Tone], beat: Double, slack: Double = 0) {
@@ -133,8 +136,14 @@ struct RhythmJudge {
             behindRun = previous ? behindRun + 1 : 0
             if next { aheadKeys += 1 }
             if previous { behindKeys += 1 }
-            if pitchClass == Self.whiteKey(from: notes[index].pitchClass, step: 1) { upKeys += 1 }
-            if pitchClass == Self.whiteKey(from: notes[index].pitchClass, step: -1) { downKeys += 1 }
+            if pitchClass == Self.whiteKey(from: notes[index].pitchClass, step: 1) {
+                upKeys += 1
+                if firstUp == nil { firstUp = (pitchClass, notes[index].pitchClass) }
+            }
+            if pitchClass == Self.whiteKey(from: notes[index].pitchClass, step: -1) {
+                downKeys += 1
+                if firstDown == nil { firstDown = (pitchClass, notes[index].pitchClass) }
+            }
             if aheadRun >= 3, !lostAhead { lostAhead = true; lostAheadFrom = index - 2 }
             if behindRun >= 3, !lostBehind { lostBehind = true; lostBehindFrom = index - 2 }
             presses.append((midi, time, "nota \(index + 1), tecla equivocada"))
@@ -165,6 +174,12 @@ struct RhythmJudge {
             strays += 1
         }
         return nil
+    }
+
+    /// La nota llarga escurçada explica que després vagi desplaçat només si no ha tornat a tocar bé cap nota entremig:
+    /// si s'ha refet i s'ha perdut més tard, el que cal dir és que s'ha perdut.
+    private func shortened(_ cut: Int, before lost: Int) -> Bool {
+        cut <= lost && !(cut..<max(cut, lost)).contains { marks[$0] == .hit }
     }
 
     /// La tecla blanca del costat (amunt o avall) d'una nota blanca; nil si la nota és negra.
@@ -284,17 +299,16 @@ struct RhythmJudge {
         let handKeys = max(upKeys, downKeys)
         // Amb una sola nota repetida, «has tocat re on anava do» diu més: quina és la tecla bona.
         let melody = Set(notes.map(\.pitchClass)).count >= 3
-        if melody, handKeys >= 3, 2 * handKeys >= notes.count, handKeys > aheadKeys, handKeys > behindKeys {
-            return upKeys > downKeys
-                ? "Toques cada nota una tecla més amunt. Mira on ha d'anar la mà i torna-hi."
-                : "Toques cada nota una tecla més avall. Mira on ha d'anar la mà i torna-hi."
+        if melody, handKeys >= 3, 2 * handKeys > notes.count, handKeys > aheadKeys, handKeys > behindKeys,
+           let first = upKeys > downKeys ? firstUp : firstDown {
+            return "Toques les notes una tecla més \(upKeys > downKeys ? "amunt" : "avall"): on anava \(Music.names[first.wanted]), has tocat \(Music.names[first.heard])."
         }
         // Si abans de perdre's ja havia escurçat una nota llarga, el que cal corregir és la nota llarga.
-        let cutFirst = cutShort.map { cut in lostAheadFrom.map { cut.note <= $0 } ?? false } ?? false
+        let cutFirst = cutShort.map { cut in lostAheadFrom.map { shortened(cut.note, before: $0) } ?? false } ?? false
         if lostAhead, !cutFirst {
             return "Vas una nota per davant de la partitura. Toca la nota que s'encén, just amb el cop."
         }
-        let cutBeforeBehind = cutShort.map { cut in lostBehindFrom.map { cut.note <= $0 } ?? false } ?? false
+        let cutBeforeBehind = cutShort.map { cut in lostBehindFrom.map { shortened(cut.note, before: $0) } ?? false } ?? false
         if lostBehind, !cutBeforeBehind {
             return "Vas una nota endarrerit. Toca la nota que s'encén, just amb el cop."
         }

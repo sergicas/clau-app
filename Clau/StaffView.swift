@@ -188,14 +188,32 @@ struct StaffView: View {
         let room = max(right - left, 1)
         let total = score.bars ? capacity : max(rowLimit, 5)
 
+        // Amb compassos, cada nota té un mínim d'espai a més del que li toca pel que dura, i abans de cada ratlla de compàs
+        // hi ha un marge: si no, en un rengle ple les notes curtes i les ratlles es toquen. El que falta per omplir el rengle
+        // compta com si fossin negres. Sense compassos, el repartiment de sempre.
+        let perNote: CGFloat = score.bars ? 0.8 * s : 0
+        let barPad: CGFloat = score.bars ? 0.9 * s : 0
+        let quarters = max(0, total - system.total)
+        let bars = score.bars ? max(0, Int((total / 4).rounded(.up)) - 1) : 0
+        let beatWidth = max(room - CGFloat(Double(system.notes.count) + quarters) * perNote - CGFloat(bars) * barPad, room * 0.3) / CGFloat(total)
+        /// On comença el cop `beat` dins del rengle. Si hi cau una ratlla de compàs, ja és després del seu marge.
+        func xAt(_ beat: Double) -> CGFloat {
+            let notesBefore = system.notes.filter { $0.start < beat - 0.001 }.count
+            let past = max(0, beat - system.total)
+            let crossed = score.bars ? min(Int(((beat + 0.001) / 4).rounded(.down)), bars) : 0
+            return left + CGFloat(beat) * beatWidth + CGFloat(Double(notesBefore) + past) * perNote + CGFloat(crossed) * barPad
+        }
+
         for note in system.notes {
-            let slot = CGFloat(note.size / total) * room
-            let x = left + CGFloat(note.start / total) * room + min(slot * 0.42, 1.7 * s)
+            let start = xAt(note.start)
+            let slot = CGFloat(note.size) * beatWidth + perNote
+            let offset = min(slot * 0.42, 1.7 * s)
+            let x = start + (score.bars ? max(offset, 0.85 * s) : offset)
             let tint = color(for: note.index)
             let home = staff(for: note.tone)
 
             if score.bars, note.start > 0, note.start.truncatingRemainder(dividingBy: 4) == 0 {
-                barline(in: &context, x: left + CGFloat(note.start / total) * room - 0.1 * s, width: max(1, s * 0.11))
+                barline(in: &context, x: start - barPad / 2 - 0.1 * s, width: max(1, s * 0.11))
             }
 
             if note.tone.rest {
@@ -225,14 +243,16 @@ struct StaffView: View {
             while bar < system.total - 0.001 {
                 let inBar = system.notes.filter { $0.start >= bar - 0.001 && $0.start < bar + 4 - 0.001 && !$0.tone.rest }
                 for staff in staves where !inBar.contains(where: { self.staff(for: $0.tone).bass == staff.bass }) {
-                    drawRest(4, in: &context, x: left + CGFloat((bar + 2) / total) * room, color: Theme.ink, staff: staff)
+                    drawRest(4, in: &context, x: (xAt(bar) + xAt(min(bar + 4, total)) - barPad) / 2, color: Theme.ink, staff: staff)
                 }
                 bar += 4
             }
         }
 
         if score.bars, !system.notes.isEmpty {
-            let end = left + CGFloat(system.total / total) * room
+            // Al final d'un rengle curt no hi ha ratlla de compàs entremig: el marge sobra.
+            let onBar = system.total < total - 0.001 && system.total.truncatingRemainder(dividingBy: 4) < 0.001
+            let end = xAt(system.total) - (onBar ? barPad : 0)
             if system.isLast, score.ends || score.repeats {
                 barline(in: &context, x: end - 0.55 * s, width: max(1, s * 0.11))
                 barline(in: &context, x: end, width: s * 0.38)

@@ -13,6 +13,9 @@ final class Recorregut: XCTestCase {
     private func launch(instrument: String) {
         app.launchArguments = ["-prova", "-instrument", instrument]
         app.launch()
+        // Si hi havia una altra app al davant, el primer toc només serviria per tornar a portar Clau al davant.
+        app.activate()
+        XCTAssertTrue(app.wait(for: .runningForeground, timeout: 10), "Clau no ha quedat al davant")
     }
 
     private func press(_ midis: [Int]) {
