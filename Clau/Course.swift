@@ -404,7 +404,9 @@ enum Course {
                   picture: .symbol("metronome.fill")),
             .listen(text: "Dos dos llargs, de dos cops cadascun, i quatre de curts.",
                     tones: llargues, bpm: 60, keyboard: doKeyboard, pulse: true),
-            .rhythm(text: "Dos dos de dos cops i quatre d'un cop. La xifra diu quants cops dura cada nota, i la vora gruixuda, per on va el pols: mentre hi és, aguanta.",
+            .rhythm(text: "Primer, un do llarg i dos de curts. La xifra diu quants cops dura cada nota, i la vora gruixuda, per on va el pols: mentre hi és, aguanta.",
+                    tones: [long(C, 2)] + tones([C, C]), bpm: 60, rounds: 2, keyboard: doKeyboard),
+            .rhythm(text: "Ara dos dos de dos cops i quatre d'un cop.",
                     tones: llargues, bpm: 60, rounds: 2, keyboard: doKeyboard),
             .listen(text: "Ara amb tres notes: do, re i un mi llarg. Després torna: mi, re i un do llarg.",
                     tones: llarguesMelodia, bpm: 66, keyboard: fiveFingerKeyboard, pulse: true),
@@ -431,6 +433,8 @@ enum Course {
                     tones: compasSencer, bpm: 66, rounds: 2, keyboard: doKeyboard),
             .rhythm(text: "Puja de do a fa, una nota a cada cop, i acaba amb un sol de quatre cops.",
                     tones: quatreIUnaLlarga, bpm: 66, rounds: 2, keyboard: fiveFingerKeyboard),
+            .rhythm(text: "Primer, un do de dos cops i dos mis d'un cop.",
+                    tones: [long(C, 2)] + tones([E, E]), bpm: 66, rounds: 2, keyboard: Keyboard(marked: [C, E], names: [C: "do", E: "mi"], fingers: [C: 1, E: 3])),
             .rhythm(text: "Ara a l'u i al tres: do a l'u, mi al tres. Cada nota s'aguanta dos cops.",
                     tones: unITres, bpm: 66, rounds: 2, keyboard: Keyboard(marked: [C, E], names: [C: "do", E: "mi"], fingers: [C: 1, E: 3])),
         ]
@@ -534,7 +538,10 @@ enum Course {
                   picture: .keyboard(fiveFingerKeyboard)),
             .listen(text: "L'últim tros.", tones: jingleE, bpm: 80, keyboard: fiveFingerKeyboard, pulse: true),
             .rhythm(text: "Toca l'últim tros.", tones: jingleE, bpm: 80, rounds: 2, keyboard: fiveFingerKeyboard),
+            .rhythm(text: "Ara els dos primers trossos seguits.", tones: jingleA + jingleB, bpm: 80, rounds: 1, keyboard: fiveFingerKeyboard),
+            .rhythm(text: "I el tercer i el quart seguits.", tones: jingleC + jingleD, bpm: 80, rounds: 1, keyboard: fiveFingerKeyboard),
             .rhythm(text: "Ara la primera meitat seguida: els quatre primers trossos.", tones: jingleA + jingleB + jingleC + jingleD, bpm: 80, rounds: 1, keyboard: fiveFingerKeyboard),
+            .rhythm(text: "El tercer tros i l'últim seguits.", tones: jingleC + jingleE, bpm: 80, rounds: 1, keyboard: fiveFingerKeyboard),
             .rhythm(text: "I la segona meitat, que acaba en el do.", tones: jingleA + jingleB + jingleC + jingleE, bpm: 80, rounds: 1, keyboard: fiveFingerKeyboard),
             .rhythm(text: "Ara tota sencera, sense pressa. Es perdona alguna nota.", tones: jingleWhole, bpm: 80, rounds: 1, keyboard: fiveFingerKeyboard),
         ],
@@ -881,6 +888,7 @@ enum Course {
 
     // 28
     private static let baseA: [Tone] = [long(lC, 4), long(lG, 4)]
+    private static let baseBlanques: [Tone] = [long(lC, 2), long(lG, 2)]
     private static let baseB: [Tone] = [long(lC, 2), long(lG, 2), long(lC, 2), Tone(midi: lF), Tone(midi: lE)]
 
     static let esquerraLlargues = Lesson(
@@ -897,7 +905,9 @@ enum Course {
                     keyboard: leftKeyboard(Score(tones: baseA, counts: true, bass: true))),
             .listen(text: "Ara amb tres blanques i dues negres que baixen al final.", tones: baseB, bpm: 66,
                     keyboard: leftKeyboard(Score(tones: baseB, counts: true, bass: true)), pulse: true),
-            .rhythm(text: "Do i sol, de dos cops cadascun; un altre do; i després fa i mi d'un cop.", tones: baseB, bpm: 66, rounds: 2,
+            .rhythm(text: "Primer, només un do i un sol de dos cops cadascun.", tones: baseBlanques, bpm: 66, rounds: 2,
+                    keyboard: leftKeyboard(Score(tones: baseBlanques, counts: true, bass: true))),
+            .rhythm(text: "Ara tot: do i sol, de dos cops cadascun; un altre do; i després fa i mi d'un cop.", tones: baseB, bpm: 66, rounds: 2,
                     keyboard: leftKeyboard(Score(tones: baseB, counts: true, bass: true))),
             .rhythm(text: "Ara sense els punts: només amb el que veus escrit.", tones: baseB, bpm: 66, rounds: 1,
                     keyboard: leftKeyboard(Score(tones: baseB, bass: true))),
