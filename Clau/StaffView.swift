@@ -204,11 +204,19 @@ struct StaffView: View {
             return left + CGFloat(beat) * beatWidth + CGFloat(Double(notesBefore) + past) * perNote + CGFloat(crossed) * barPad
         }
 
-        for note in system.notes {
-            let start = xAt(note.start)
+        /// On va el cap d'una nota: una mica endins de l'espai que li toca.
+        func headX(_ note: Placed) -> CGFloat {
             let slot = CGFloat(note.size) * beatWidth + perNote
             let offset = min(slot * 0.42, 1.7 * s)
-            let x = start + (score.bars ? max(offset, 0.85 * s) : offset)
+            return xAt(note.start) + (score.bars ? max(offset, 0.85 * s) : offset)
+        }
+
+        for (position, note) in system.notes.enumerated() {
+            let start = xAt(note.start)
+            let slot = CGFloat(note.size) * beatWidth + perNote
+            let x = headX(note)
+            // Fins on arriben els punts de pols d'aquesta nota: el cap de la següent o, a final de rengle, tant com ocupa la nota.
+            let nextX = position + 1 < system.notes.count ? headX(system.notes[position + 1]) : x + slot
             let tint = color(for: note.index)
             let home = staff(for: note.tone)
 
@@ -230,7 +238,7 @@ struct StaffView: View {
             var caption: String?
             if score.names, !note.tone.rest { caption = Music.name(note.tone.midi) }
             if score.counts {
-                drawPips(for: note.index, in: &context, x: x)
+                drawPips(for: note.index, in: &context, x: x, until: nextX)
             } else if let caption {
                 let text = Text(caption).font(.system(size: 1.3 * s, weight: .semibold)).foregroundColor(tint == Theme.ink ? Theme.soft : tint)
                 context.draw(text, at: CGPoint(x: x, y: bottomLine + 2.9 * s))
@@ -273,14 +281,15 @@ struct StaffView: View {
 
     /// Un punt gran per cada cop sencer que dura la nota, i un de petit per al mig cop
     /// (la negra amb punt: un de gran i un de petit). S'omplen a mesura que passa el pols.
-    private func drawPips(for index: Int, in context: inout GraphicsContext, x: CGFloat) {
+    /// Els punts es reparteixen des del cap de la nota fins al de la següent: el primer, sota el cap.
+    private func drawPips(for index: Int, in context: inout GraphicsContext, x: CGFloat, until nextX: CGFloat) {
         let tone = score.tones[index]
         let start = score.tones.prefix(index).reduce(0) { $0 + $1.beats }
         let whole = Int(tone.beats + 0.001)
         let pips = tone.beats - Double(whole) > 0.01 ? whole + 1 : max(whole, 1)
-        let gap = 0.85 * s
+        let gap = max((nextX - x) / CGFloat(pips), 0.85 * s)
         let y = bottomLine + 2.9 * s
-        let first = x - CGFloat(pips - 1) * gap / 2
+        let first = x
         let total = score.tones.reduce(0) { $0 + $1.beats }
         // Si el ritme repeteix la partitura, es torna a començar.
         let now = beat.map { total > 0 ? $0.truncatingRemainder(dividingBy: total) : $0 }
