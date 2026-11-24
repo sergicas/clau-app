@@ -22,7 +22,7 @@
 - L32 vista a l'iPhone: el recorregut d'interfície ha passat.
 - L24: pas 6 nou, «on es torna a començar» (el final i el principi, amb punts de pols), abans de tocar-la dues vegades (ara pas 7). La prova del «qui corre» de `proves/main.swift` agafa l'últim pas de la L24.
 - Punts de pols (`StaffView.drawPips`): es reparteixen cap a la nota següent, amb un buit entre notes i una ratlleta que uneix els punts d'una mateixa nota.
-- Sisena revisió del provador (`revisions/2026-11-24.md`): arreglats els punts sense compassos (L21, L28), la ratlla doble i el text del pas 6 de la L24. Queda: als passos d'escoltar (L21 pas 2, L28 passos 2 i 4) els punts no s'encenen mentre sona.
+- Sisena revisió del provador (`revisions/2026-11-24.md`): arreglats els punts sense compassos (L21, L28), la ratlla doble i el text del pas 6 de la L24. Després, també s'encenen els punts als passos d'escoltar (`playExample` publica `rhythmBeat`).
 
 ## Decisions d'en Sergi
 - En els ritmes curts no es perdona una blanca escurçada. Per això el principiant simulat es queda a uns 30 % als passos difícils, i en Sergi ho vol així.
