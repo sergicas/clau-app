@@ -281,21 +281,31 @@ struct StaffView: View {
 
     /// Un punt gran per cada cop sencer que dura la nota, i un de petit per al mig cop
     /// (la negra amb punt: un de gran i un de petit). S'omplen a mesura que passa el pols.
-    /// Els punts es reparteixen des del cap de la nota fins al de la següent: el primer, sota el cap.
+    /// Els punts es reparteixen des del cap de la nota cap al de la següent: el primer, sota el cap. Abans del grup
+    /// següent queda un buit, i una ratlleta uneix els punts d'una mateixa nota, perquè es vegi quins són de cadascuna.
     private func drawPips(for index: Int, in context: inout GraphicsContext, x: CGFloat, until nextX: CGFloat) {
         let tone = score.tones[index]
         let start = score.tones.prefix(index).reduce(0) { $0 + $1.beats }
         let whole = Int(tone.beats + 0.001)
         let pips = tone.beats - Double(whole) > 0.01 ? whole + 1 : max(whole, 1)
-        let gap = max((nextX - x) / CGFloat(pips), 0.85 * s)
+        let gap = max((nextX - x) / (CGFloat(pips) + 0.6), 0.85 * s)
         let y = bottomLine + 2.9 * s
         let first = x
         let total = score.tones.reduce(0) { $0 + $1.beats }
         // Si el ritme repeteix la partitura, es torna a començar.
         let now = beat.map { total > 0 ? $0.truncatingRemainder(dividingBy: total) : $0 }
 
+        func radius(_ pip: Int) -> CGFloat { (pip < whole ? 0.3 : 0.2) * s }
+        for pip in 1..<max(pips, 1) {
+            // De la vora d'un punt a la del següent, sense entrar dins dels cercles.
+            var tie = Path()
+            tie.move(to: CGPoint(x: first + CGFloat(pip - 1) * gap + radius(pip - 1), y: y))
+            tie.addLine(to: CGPoint(x: first + CGFloat(pip) * gap - radius(pip), y: y))
+            context.stroke(tie, with: .color(Theme.soft.opacity(0.6)), lineWidth: max(1, s * 0.08))
+        }
+
         for pip in 0..<pips {
-            let radius = (pip < whole ? 0.3 : 0.2) * s
+            let radius = radius(pip)
             let rect = CGRect(x: first + CGFloat(pip) * gap - radius, y: y - radius, width: 2 * radius, height: 2 * radius)
             let path = Path(ellipseIn: rect)
             if let now, now >= start + Double(pip), now < start + tone.beats {
