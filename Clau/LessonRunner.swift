@@ -37,7 +37,7 @@ final class LessonRunner: ObservableObject {
     @Published private(set) var marks: [RhythmJudge.Mark] = []
     /// Tecla que toca ara en un ritme.
     @Published private(set) var rhythmTarget: Int?
-    /// Quants cops del ritme han passat (0 al primer). Serveix per ensenyar per on va el pols.
+    /// Quants cops del ritme o de l'exemple que sona han passat (0 al primer). Serveix per ensenyar per on va el pols.
     @Published private(set) var rhythmBeat: Int?
     /// Posició de la nota que toca ara en un ritme.
     @Published private(set) var rhythmIndex: Int?
@@ -115,6 +115,7 @@ final class LessonRunner: ObservableObject {
         audio?.setListening(false)
         sounding = nil
         soundingIndex = nil
+        rhythmBeat = nil
         isPlaying = false
 
         if stepIndex + 1 < steps.count {
@@ -177,6 +178,7 @@ final class LessonRunner: ObservableObject {
         audio?.stopPlaying()
         isPlaying = true
         count = nil
+        rhythmBeat = nil
         let beat = beatLength(bpm)
         let lead = pulse ? 4 : 0
         let total = tones.reduce(0) { $0 + $1.beats }
@@ -184,12 +186,14 @@ final class LessonRunner: ObservableObject {
         let origin = CACurrentMediaTime() + delay + 0.05
         let first = origin + Double(lead) * beat
 
-        // Cops i notes, ordenats pel moment en què han de sonar.
-        var events: [(time: Double, tick: Int?, tone: Tone?, index: Int)] = []
-        for tick in 0..<ticks { events.append((origin + Double(tick) * beat, tick, nil, 0)) }
+        // Cops i notes, ordenats pel moment en què han de sonar. A part, per on va la peça (`rhythmBeat`),
+        // perquè els punts de sota les notes s'encenguin com quan toca l'alumne, amb pols o sense.
+        var events: [(time: Double, tick: Int?, piece: Int?, tone: Tone?, index: Int)] = []
+        for tick in 0..<ticks { events.append((origin + Double(tick) * beat, tick, nil, nil, 0)) }
+        for piece in 0..<Int(total.rounded(.up)) { events.append((first + Double(piece) * beat, nil, piece, nil, 0)) }
         var at = first
         for (index, tone) in tones.enumerated() {
-            events.append((at, nil, tone, index))
+            events.append((at, nil, nil, tone, index))
             at += tone.beats * beat
         }
         events.sort { $0.time < $1.time }
@@ -203,6 +207,7 @@ final class LessonRunner: ObservableObject {
                     self.audio?.click(accent: tick % 4 == 0)
                     self.count = tick % 4 + 1
                 }
+                if let piece = event.piece { self.rhythmBeat = piece }
                 if let tone = event.tone {
                     self.sounding = tone.rest ? nil : tone.midi
                     self.soundingIndex = event.index
@@ -214,6 +219,7 @@ final class LessonRunner: ObservableObject {
             self.sounding = nil
             self.soundingIndex = nil
             self.count = nil
+            self.rhythmBeat = nil
             self.isPlaying = false
             self.hasListened = true
         }

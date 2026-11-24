@@ -329,7 +329,10 @@ struct LessonView: View {
             current = runner.rhythmPhase == .idle ? nil : runner.rhythmIndex.map { $0 % count }
         }
         var beat: Double?
-        if case .rhythm = runner.step { beat = runner.rhythmBeat.map(Double.init) }
+        switch runner.step {
+        case .rhythm, .listen: beat = runner.rhythmBeat.map(Double.init)
+        default: break
+        }
         return StaffView(score: score, current: current, done: done, marks: marks, beat: beat, spacing: score.grand ? (compact ? 6.5 : 9) : (compact ? 9 : 13))
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
