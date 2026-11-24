@@ -500,15 +500,15 @@ struct LessonView: View {
             ForEach(Array(tones.enumerated()), id: \.offset) { index, tone in
                 let mark = index < runner.marks.count ? runner.marks[index] : .pending
                 let start = tones.prefix(index).reduce(0) { $0 + $1.beats }
-                let now = runner.rhythmBeat.map { Double($0) >= start && Double($0) < start + tone.beats } ?? false
+                let now = runner.rhythmBeat.map { Double($0) >= start && Double($0) < start + tone.written } ?? false
                 VStack(spacing: 1) {
                     Text(tone.rest ? "–" : Music.name(tone.midi))
                         .font(Theme.serif(small ? .body : .title3, weight: .semibold))
-                    Text(beatsLabel(tone.beats))
+                    Text(beatsLabel(tone.written))
                         .font(.caption2.weight(.semibold))
                         .opacity(0.75)
                 }
-                .frame(minWidth: (small ? 30 : 38) * max(0.75, min(CGFloat(tone.beats), 2.6)))
+                .frame(minWidth: (small ? 30 : 38) * max(0.75, min(CGFloat(tone.written), 2.6)))
                 .padding(.horizontal, small ? 5 : 7)
                 .padding(.vertical, small ? 3 : 6)
                 .foregroundStyle(mark == .pending ? (tone.rest ? Theme.soft : Theme.ink) : Theme.card)
@@ -518,7 +518,7 @@ struct LessonView: View {
             }
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Ritme: " + tones.map { ($0.rest ? "silenci" : Music.name($0.midi)) + " " + beatsLabel($0.beats) }.joined(separator: ", "))
+        .accessibilityLabel("Ritme: " + tones.map { ($0.rest ? "silenci" : Music.name($0.midi)) + " " + beatsLabel($0.written) }.joined(separator: ", "))
     }
 
     private func chipFill(_ mark: RhythmJudge.Mark) -> Color {

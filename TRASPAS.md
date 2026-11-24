@@ -24,11 +24,18 @@
 - Punts de pols (`StaffView.drawPips`): es reparteixen cap a la nota següent, amb un buit entre notes i una ratlleta que uneix els punts d'una mateixa nota.
 - Sisena revisió del provador (`revisions/2026-11-24.md`): arreglats els punts sense compassos (L21, L28), la ratlla doble i el text del pas 6 de la L24. Després, també s'encenen els punts als passos d'escoltar (`playExample` publica `rhythmBeat`).
 
+## L33, la primera de l'etapa 5 (2026-11-24)
+- Etapa 5 «Les dues mans» oberta amb la L33 «Una nota llarga a sota» (`Course.notaDeSota`). Tres compassos: a cada un, l'esquerra toca una rodona (do, sol, do) sola al primer cop i l'aguanta; la dreta toca tres negres als cops 2, 3 i 4.
+- Nou `Tone.hold`: la nota sona i s'escriu així de llarga, però la següent comença al cap de `beats`. El jutge del ritme no canvia, perquè només mira quan comença cada nota. El pentagrama de les dues mans posa un silenci a l'altra mà mentre la nota de sota sona sola.
+- Alumne simulat: el principiant passa un 74 % els passos d'un compàs i un 27 % els de tres compassos, com a la resta del curs.
+- No s'ha vist a l'iPhone ni amb un piano de debò. No se sap si el micròfon reconeix bé la melodia mentre la nota de sota encara sona.
+
 ## Decisions d'en Sergi
 - En els ritmes curts no es perdona una blanca escurçada. Per això el principiant simulat es queda a uns 30 % als passos difícils, i en Sergi ho vol així.
 - Mai simuladors d'iOS: les proves es fan a l'iPhone per cable.
 - El provador no toca Clau/, ClauUITests/ ni el projecte, i no fa commits.
 - Res va a Apple ni a internet. No es puja res.
+- A l'etapa 5, de moment, les dues mans mai comencen alhora (2026-11-24). Què fer quan hagin de començar juntes (L35) està per decidir.
 
 ## Pendent
 1. ~~Veure la L32 a l'iPhone.~~ **Fet el 2026-11-24:** testLlegir i testEsquerra han passat (el telèfon anava per xarxa local, no per cable). Les captures e08, e09, g12 i g13 són correctes. Abans, dues proves d'interfície havien fallat amb «Timed out while enabling automation mode». Abans de provar-ho, cal:
@@ -49,6 +56,7 @@
 2. Coses obertes que en Sergi no ha demanat:
    - Ningú ha provat l'app amb un piano de debò.
    - ~~La L24, pas 6, és al 22 %.~~ 2026-11-24: nou pas 6 «on es torna a començar» (el final i el principi, 62 %) abans de les dues vegades (ara pas 7, 22–30 %). L'últim no pot pujar sense perdonar blanques: té sis notes llargues.
+   - La L35 (les dues mans alhora): cal triar com es comprova amb piano de debò, perquè el micròfon no sent dues notes que comencen alhora.
    - ~~Els punts de pols de les notes llargues queden amuntegats.~~ 2026-11-24: es reparteixen des del cap de la nota fins al de la següent (`StaffView.drawPips`).
 
 ## Eines útils

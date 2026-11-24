@@ -211,7 +211,7 @@ final class LessonRunner: ObservableObject {
                 if let tone = event.tone {
                     self.sounding = tone.rest ? nil : tone.midi
                     self.soundingIndex = event.index
-                    if !tone.rest { self.audio?.play(midi: tone.midi, seconds: tone.beats * beat * 0.92) }
+                    if !tone.rest { self.audio?.play(midi: tone.midi, seconds: tone.written * beat * 0.92) }
                 }
             }
             await LessonRunner.sleep(until: end)

@@ -18,6 +18,12 @@ struct Tone: Equatable {
     var beats: Double = 1
     /// Un silenci: dura, però no sona.
     var rest = false
+    /// Una nota de sota que s'aguanta: sona i s'escriu així de llarga, però la següent comença al cap de `beats`,
+    /// mentre aquesta encara sona. Mai comencen dues notes alhora: el micròfon només en sent una.
+    var hold: Double?
+
+    /// El que dura escrita i el que sona.
+    var written: Double { hold ?? beats }
 
     static func rest(_ beats: Double = 1) -> Tone { Tone(midi: 60, beats: beats, rest: true) }
 }
@@ -144,11 +150,10 @@ struct Stage: Identifiable, Equatable {
 // MARK: - Contingut
 
 enum Course {
-    static let stages: [Stage] = [stage1, stage2, stage3, stage4]
+    static let stages: [Stage] = [stage1, stage2, stage3, stage4, stage5]
 
     /// Etapes que encara no hi són, per ensenyar el camí.
     static let upcoming: [(title: String, summary: String)] = [
-        ("Les dues mans", "Baix i melodia, mans juntes"),
         ("Sortir dels cinc dits", "El pas del polze, l'escala i les tecles negres"),
         ("Acords", "Do, fa i sol, menors i acompanyar"),
     ]
@@ -1003,5 +1008,55 @@ enum Course {
             readHands("Ara tota sencera, passant d'una mà a l'altra.", odaMix, rounds: 1, bars: true, both: true),
         ],
         isPiece: true
+    )
+
+    // MARK: Etapa 5 · Les dues mans
+
+    static let stage5 = Stage(
+        id: 5,
+        title: "Les dues mans",
+        summary: "Baix i melodia, mans juntes",
+        lessons: [notaDeSota]
+    )
+
+    /// Una nota de l'esquerra que dura un compàs sencer i sona sola el primer cop; la dreta toca als cops 2, 3 i 4.
+    private static func underneath(_ bass: Int, _ melody: [Int]) -> [Tone] {
+        [Tone(midi: bass, beats: 1, hold: 4)] + tones(melody)
+    }
+
+    private static func handsRhythm(_ text: String, _ tones: [Tone], rounds: Int = 2, counts: Bool = true) -> Step {
+        .rhythm(text: text, tones: tones, bpm: 60, rounds: rounds,
+                keyboard: handsKeyboard(Score(tones: tones, counts: counts, bars: true, grand: true)))
+    }
+
+    // 33
+    private static let sotaA = underneath(lC, [E, F, G])
+    private static let sotaB = underneath(lG, [F, E, D])
+    private static let sotaC = underneath(lC, [E, D, C])
+    private static let sota = sotaA + sotaB + sotaC
+
+    static let notaDeSota = Lesson(
+        id: "5-sota", number: 33,
+        title: "Una nota llarga a sota",
+        summary: "L'esquerra aguanta, la dreta canta",
+        minutes: 7,
+        steps: [
+            .look(text: "Fins ara, les mans tocaven per torns. Ara toquen juntes: l'esquerra fa una nota llarga i l'aguanta, i a sobre la dreta fa la melodia.",
+                  picture: .staff(Score(tones: sotaA, bars: true, grand: true))),
+            .look(text: "La nota de sota sona sola al primer cop. Mentre l'aguantes, la dreta toca als cops 2, 3 i 4. Per això a dalt, al primer cop, hi ha un silenci.",
+                  picture: .staff(Score(tones: sotaA, counts: true, bars: true, grand: true))),
+            .look(text: "Posa les dues mans: la dreta amb el polze sobre el do del mig i l'esquerra amb el petit sobre el do greu.",
+                  picture: .keyboard(bothHands)),
+            .listen(text: "Escolta: el do de sota i, mentre encara sona, mi, fa i sol a dalt.", tones: sotaA, bpm: 60,
+                    keyboard: handsKeyboard(Score(tones: sotaA, counts: true, bars: true, grand: true)), pulse: true),
+            handsRhythm("Toca el do amb el dit 5 de l'esquerra i no l'aixequis. Als cops 2, 3 i 4, la dreta: mi, fa i sol.", sotaA),
+            .listen(text: "Ara la nota de sota és el sol, amb el polze de l'esquerra. A dalt, fa, mi i re.", tones: sotaB, bpm: 60,
+                    keyboard: handsKeyboard(Score(tones: sotaB, counts: true, bars: true, grand: true)), pulse: true),
+            handsRhythm("Toca el sol amb el polze de l'esquerra i aguanta'l. La dreta: fa, mi i re.", sotaB),
+            .listen(text: "Tres compassos seguits. L'últim torna al do i la melodia baixa fins al do del mig.", tones: sota, bpm: 60,
+                    keyboard: handsKeyboard(Score(tones: sota, counts: true, bars: true, grand: true)), pulse: true),
+            handsRhythm("Toca els tres compassos. A cada un, primer la nota de sota i després les tres de dalt.", sota),
+            handsRhythm("Ara sense els punts: només amb el que veus escrit.", sota, rounds: 1, counts: false),
+        ]
     )
 }

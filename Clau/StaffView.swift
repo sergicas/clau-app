@@ -233,6 +233,10 @@ struct StaffView: View {
                     context.fill(Path(ellipseIn: halo), with: .color(Theme.brass.opacity(0.22)))
                 }
                 drawNote(note.tone, in: &context, x: x, color: tint, staff: home)
+                // Mentre la nota de sota sona sola, l'altra mà calla: el seu pentagrama porta un silenci.
+                if score.grand, note.tone.hold != nil, let other = staves.first(where: { $0.bass != home.bass }) {
+                    drawRest(note.tone.beats, in: &context, x: x, color: Theme.ink, staff: other)
+                }
             }
 
             var caption: String?
@@ -359,14 +363,14 @@ struct StaffView: View {
 
         let transform = CGAffineTransform(translationX: x, y: centerY).rotated(by: -0.38)
         let head = Path(ellipseIn: CGRect(x: -rx, y: -ry, width: 2 * rx, height: 2 * ry)).applying(transform)
-        if tone.beats >= 2 {
+        if tone.written >= 2 {
             let inner = Path(ellipseIn: CGRect(x: -rx * 0.74, y: -ry * 0.52, width: 2 * rx * 0.74, height: 2 * ry * 0.52)).applying(transform)
             context.fill(head.subtracting(inner), with: .color(color))
         } else {
             context.fill(head, with: .color(color))
         }
 
-        if tone.beats < 4 {
+        if tone.written < 4 {
             // De la ratlla del mig cap amunt, el pal va avall i a l'esquerra, com s'escriu.
             let down = position >= 4
             let direction: CGFloat = down ? 1 : -1
@@ -377,7 +381,7 @@ struct StaffView: View {
             stem.addLine(to: CGPoint(x: stemX, y: tip))
             context.stroke(stem, with: .color(color), lineWidth: max(1, s * 0.13))
 
-            if tone.beats < 1 {
+            if tone.written < 1 {
                 var flag = Path()
                 flag.move(to: CGPoint(x: stemX, y: tip))
                 flag.addCurve(to: CGPoint(x: stemX + 0.75 * s, y: tip - direction * 2.0 * s),
@@ -387,7 +391,7 @@ struct StaffView: View {
             }
         }
 
-        if tone.beats == 1.5 || tone.beats == 3 {
+        if tone.written == 1.5 || tone.written == 3 {
             let onLine = position % 2 == 0
             let dot = CGRect(x: x + rx + 0.35 * s, y: centerY - 0.17 * s - (onLine ? 0.25 * s : 0), width: 0.34 * s, height: 0.34 * s)
             context.fill(Path(ellipseIn: dot), with: .color(color))
