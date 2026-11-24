@@ -1,7 +1,7 @@
 # Traspàs: on som amb Clau (2026-11-24)
 
 ## Estat
-- Últim commit de codi: `33b2632`. Tot està desat a git i res està pujat. No hi ha canvis pendents.
+- Últim commit de codi: vegeu `git log` (sisena revisió, 2026-11-24). Tot està desat a git i res està pujat. No hi ha canvis pendents.
 - La darrera versió està instal·lada a l'iPhone (Release) i al Mac (`./mac.sh` → /Applications/Clau.app).
 - `proves/prova.sh` diu «Tot bé.»
 
@@ -21,7 +21,8 @@
 ## Tanda del 2026-11-24 (commits 428093b i 33b2632)
 - L32 vista a l'iPhone: el recorregut d'interfície ha passat.
 - L24: pas 6 nou, «on es torna a començar» (el final i el principi, amb punts de pols), abans de tocar-la dues vegades (ara pas 7). La prova del «qui corre» de `proves/main.swift` agafa l'últim pas de la L24.
-- Punts de pols (`StaffView.drawPips`): es reparteixen des del cap de la nota fins al de la següent; el punt petit de la negra amb punt queda a mig camí.
+- Punts de pols (`StaffView.drawPips`): es reparteixen cap a la nota següent, amb un buit entre notes i una ratlleta que uneix els punts d'una mateixa nota.
+- Sisena revisió del provador (`revisions/2026-11-24.md`): arreglats els punts sense compassos (L21, L28), la ratlla doble i el text del pas 6 de la L24. Queda: als passos d'escoltar (L21 pas 2, L28 passos 2 i 4) els punts no s'encenen mentre sona.
 
 ## Decisions d'en Sergi
 - En els ritmes curts no es perdona una blanca escurçada. Per això el principiant simulat es queda a uns 30 % als passos difícils, i en Sergi ho vol així.
