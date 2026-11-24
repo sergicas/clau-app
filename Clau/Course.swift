@@ -758,7 +758,7 @@ enum Course {
         id: "3-lluna", number: 24,
         title: "Au clair de la lune",
         summary: "Una peça llegida, sense sentir-la abans",
-        minutes: 7,
+        minutes: 8,
         steps: [
             .look(text: "La peça d'aquesta etapa no l'escoltaràs abans: la llegiràs. És el començament d'Au clair de la lune, una cançó francesa molt antiga.",
                   picture: .staff(Score(tones: llunaTota, bars: true))),
@@ -768,6 +768,8 @@ enum Course {
                     keyboard: keyboard(Score(tones: llunaTota, counts: true, bars: true))),
             .listen(text: "Escolta-la. Ho has llegit bé?", tones: llunaTota, bpm: 84,
                     keyboard: keyboard(Score(tones: llunaTota, bars: true)), pulse: true),
+            .rhythm(text: "Abans de tocar-la dues vegades, practica on es torna a començar: el final i, tot seguit, el principi. El do llarg dura quatre cops; no tornis a començar fins que no s'acabi.", tones: llunaB + llunaA, bpm: 66, rounds: 2,
+                    keyboard: keyboard(Score(tones: llunaB + llunaA, counts: true, bars: true))),
             .rhythm(text: "Per acabar, dues vegades seguides i una mica més de pressa. Els dos punts del final volen dir que es torna a començar.", tones: llunaTota + llunaTota, bpm: 76, rounds: 1,
                     keyboard: keyboard(Score(tones: llunaTota, bars: true, repeats: true))),
         ],

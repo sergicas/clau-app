@@ -266,10 +266,11 @@ var aheadCinc = RhythmJudge(tones: escalaCinc, beat: 1)
 for index in 0..<(escalaCinc.count - 1) { aheadCinc.heard(midi: escalaCinc[index + 1].midi, at: Double(index)) }
 aheadCinc.close(upTo: .infinity)
 verify("Do re mi fa sol una nota per davant (re mi fa sol i res): diu «per davant», no la mà", aheadCinc.verdict.contains("una nota per davant"))
-// Qui corre (tempo un 6 % més ràpid) i escurça la blanca: de debò, L24 pas 6 a velocitat lenta, de l'alumne simulat «ritme propi».
+// Qui corre (tempo un 6 % més ràpid) i escurça la blanca: de debò, l'últim pas de la L24 (dues vegades seguides) a velocitat lenta, de l'alumne simulat «ritme propi».
 // Va avançat tota l'estona, però com que ha escurçat la blanca abans de perdre's, el «per davant» calla i surt «endarrerit».
 let l24 = Course.allLessons.first { $0.number == 24 }!
-if case .rhythm(_, let tones24, let bpm24, _, _) = l24.steps[5] {
+guard case .rhythm(_, let tones24, let bpm24, _, _) = l24.steps.last else { fatalError("L'últim pas de la L24 ja no és de ritme") }
+do {
     var corre = RhythmJudge(tones: tones24, beat: 60 / (bpm24 * 0.8))
     let tocat: [(Int, Double)] = [(60, 0.12), (60, 0.91), (60, 1.93), (62, 2.74), (64, 3.76), (62, 5.60), (60, 7.42), (64, 8.35), (62, 9.35),
                                   (62, 10.26), (60, 11.21), (60, 14.94), (60, 15.86), (60, 16.76), (62, 17.68), (64, 18.51), (62, 19.77),
