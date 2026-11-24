@@ -108,6 +108,8 @@ Cada etapa acaba amb una peça. Unes 60 lliçons en total.
 42. **Peça:** l'Oda a l'alegria amb les dues mans
 
 > Decisió d'en Sergi del 24-11-2026: a la L33 les dues mans **mai comencen alhora**. La nota de sota sona sola al primer cop i s'aguanta (`Tone.hold`); la dreta toca als cops 2, 3 i 4. Així el micròfon i la pantalla ho comproven tot. Què fer quan les dues mans comencin alhora (L35) encara és per decidir.
+>
+> La L34 segueix la mateixa regla: la nota de sota és una blanca als cops 1 i 3, i la dreta toca als cops 2 i 4.
 
 ### Etapa 6 · Sortir dels cinc dits (8 lliçons)
 

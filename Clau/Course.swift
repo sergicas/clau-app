@@ -1016,7 +1016,7 @@ enum Course {
         id: 5,
         title: "Les dues mans",
         summary: "Baix i melodia, mans juntes",
-        lessons: [notaDeSota]
+        lessons: [notaDeSota, canviarSota]
     )
 
     /// Una nota de l'esquerra que dura un compàs sencer i sona sola el primer cop; la dreta toca als cops 2, 3 i 4.
@@ -1057,6 +1057,40 @@ enum Course {
                     keyboard: handsKeyboard(Score(tones: sota, counts: true, bars: true, grand: true)), pulse: true),
             handsRhythm("Toca els tres compassos. A cada un, primer la nota de sota i després les tres de dalt.", sota),
             handsRhythm("Ara sense els punts: només amb el que veus escrit.", sota, rounds: 1, counts: false),
+        ]
+    )
+
+    // 34
+    /// Una nota de l'esquerra de dos cops, sola al seu primer cop, i una nota de la dreta al segon.
+    private static func half(_ bass: Int, _ melody: Int) -> [Tone] {
+        [Tone(midi: bass, beats: 1, hold: 2), Tone(midi: melody)]
+    }
+
+    private static let canviA = half(lC, E) + half(lG, D)
+    private static let canviB = half(lE, G) + half(lD, F)
+    private static let canvi = canviA + canviB + sotaC
+
+    static let canviarSota = Lesson(
+        id: "5-canviar-sota", number: 34,
+        title: "Canviar la nota de sota",
+        summary: "L'esquerra canvia a mig compàs",
+        minutes: 7,
+        steps: [
+            .look(text: "Ara la nota de sota dura dos cops en lloc de quatre: és una blanca. A cada compàs n'hi caben dues, i l'esquerra canvia de nota a mig compàs.",
+                  picture: .staff(Score(tones: canviA, bars: true, grand: true))),
+            .look(text: "L'esquerra toca als cops 1 i 3 i la dreta, als cops 2 i 4. Les mans es van alternant, però cada nota de sota s'aguanta mentre sona la de dalt.",
+                  picture: .staff(Score(tones: canviA, counts: true, bars: true, grand: true))),
+            .listen(text: "Escolta: do a sota i mi a dalt; després sol a sota i re a dalt.", tones: canviA, bpm: 60,
+                    keyboard: handsKeyboard(Score(tones: canviA, counts: true, bars: true, grand: true)), pulse: true),
+            handsRhythm("Toca el do amb el dit 5 i aguanta'l mentre la dreta fa el mi. Al cop 3, canvia al sol amb el polze, i la dreta fa el re.", canviA),
+            .listen(text: "Ara l'esquerra fa mi i re, amb els dits 3 i 4. A dalt, sol i fa.", tones: canviB, bpm: 60,
+                    keyboard: handsKeyboard(Score(tones: canviB, counts: true, bars: true, grand: true)), pulse: true),
+            handsRhythm("Toca el mi de sota amb el dit 3 i, al cop 3, el re amb el dit 4. La dreta: sol i fa.", canviB),
+            handsRhythm("Els dos compassos seguits. No aixequis la nota de sota fins que toqui la següent.", canviA + canviB),
+            .listen(text: "Tot sencer. Acaba amb un compàs que ja coneixes: el do llarg a sota i mi, re i do a dalt.", tones: canvi, bpm: 60,
+                    keyboard: handsKeyboard(Score(tones: canvi, counts: true, bars: true, grand: true)), pulse: true),
+            handsRhythm("Toca els tres compassos. L'esquerra canvia quatre vegades i a l'últim compàs s'hi queda.", canvi),
+            handsRhythm("Ara sense els punts: només amb el que veus escrit.", canvi, rounds: 1, counts: false),
         ]
     )
 }

@@ -30,6 +30,11 @@
 - Alumne simulat: el principiant passa un 74 % els passos d'un compàs i un 27 % els de tres compassos, com a la resta del curs.
 - No s'ha vist a l'iPhone ni amb un piano de debò. No se sap si el micròfon reconeix bé la melodia mentre la nota de sota encara sona.
 
+## L34, canviar la nota de sota (2026-11-24)
+- L34 «Canviar la nota de sota» (`Course.canviarSota`). La nota de sota és una blanca (`hold: 2`): l'esquerra toca als cops 1 i 3 i la dreta, als cops 2 i 4. Tres compassos: do–sol i mi–re a sota, i per acabar el compàs del do llarg de la L33. Les mans continuen sense començar mai alhora.
+- Alumne simulat: el principiant passa un 74 % els passos d'un compàs, un 45 % els dos compassos i un 28 % els tres.
+- Com la L33, no s'ha vist a l'iPhone ni amb un piano de debò.
+
 ## Decisions d'en Sergi
 - En els ritmes curts no es perdona una blanca escurçada. Per això el principiant simulat es queda a uns 30 % als passos difícils, i en Sergi ho vol així.
 - Mai simuladors d'iOS: les proves es fan a l'iPhone per cable.
