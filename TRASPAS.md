@@ -1,7 +1,7 @@
 # Traspàs: on som amb Clau (2026-11-24)
 
 ## Estat
-- Últim commit de codi: vegeu `git log` (sisena revisió, 2026-11-24). Tot està desat a git i res està pujat. No hi ha canvis pendents.
+- Últim commit de codi: vegeu `git log` (sisena revisió, 2026-11-24). Tot està desat a git i pujat a GitHub. No hi ha canvis pendents.
 - La darrera versió està instal·lada a l'iPhone (Release) i al Mac (`./mac.sh` → /Applications/Clau.app).
 - `proves/prova.sh` diu «Tot bé.»
 
@@ -39,7 +39,7 @@
 - En els ritmes curts no es perdona una blanca escurçada. Per això el principiant simulat es queda a uns 30 % als passos difícils, i en Sergi ho vol així.
 - Mai simuladors d'iOS: les proves es fan a l'iPhone per cable.
 - El provador no toca Clau/, ClauUITests/ ni el projecte, i no fa commits.
-- Res va a Apple ni a internet. No es puja res.
+- Des del 2026-11-25 es pot pujar tot a internet (abans no es pujava res). El codi és a https://github.com/sergicas/clau-app, repositori privat. Enviar res a Apple continua demanant el seu sí.
 - A l'etapa 5, de moment, les dues mans mai comencen alhora (2026-11-24). Què fer quan hagin de començar juntes (L35) està per decidir.
 
 ## Pendent
