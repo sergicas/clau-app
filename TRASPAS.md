@@ -39,7 +39,7 @@
 - En els ritmes curts no es perdona una blanca escurçada. Per això el principiant simulat es queda a uns 30 % als passos difícils, i en Sergi ho vol així.
 - Mai simuladors d'iOS: les proves es fan a l'iPhone per cable.
 - El provador no toca Clau/, ClauUITests/ ni el projecte, i no fa commits.
-- Des del 2026-11-25 es pot pujar tot a internet (abans no es pujava res). El codi és a https://github.com/sergicas/clau-app, repositori privat. Enviar res a Apple continua demanant el seu sí.
+- Des del 2026-11-25 es pot pujar tot a internet (abans no es pujava res). El codi és a https://github.com/sergicas/clau-app, repositori públic des del 2026-11-25. Aquell dia es va demanar una auditoria a ChatGPT (xat «Fes una auditoria de l'app Clau…»); falta llegir-ne el resultat. Enviar res a Apple continua demanant el seu sí.
 - A l'etapa 5, de moment, les dues mans mai comencen alhora (2026-11-24). Què fer quan hagin de començar juntes (L35) està per decidir.
 
 ## Pendent
