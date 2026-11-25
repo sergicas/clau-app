@@ -340,7 +340,7 @@ struct LessonView: View {
         }
         var beat: Double?
         switch runner.step {
-        case .rhythm, .listen: beat = runner.rhythmBeat.map(Double.init)
+        case .rhythm, .listen: beat = runner.rhythmBeat
         default: break
         }
         return StaffView(score: score, current: current, done: done, marks: marks, beat: beat, spacing: score.grand ? (compact ? 6.5 : 9) : (compact ? 9 : 13))
@@ -510,7 +510,7 @@ struct LessonView: View {
             ForEach(Array(tones.enumerated()), id: \.offset) { index, tone in
                 let mark = index < runner.marks.count ? runner.marks[index] : .pending
                 let start = tones.prefix(index).reduce(0) { $0 + $1.beats }
-                let now = runner.rhythmBeat.map { Double($0) >= start && Double($0) < start + tone.written } ?? false
+                let now = runner.rhythmBeat.map { $0 >= start && $0 < start + tone.written } ?? false
                 VStack(spacing: 1) {
                     Text(tone.rest ? "–" : Music.name(tone.midi))
                         .font(Theme.serif(small ? .body : .title3, weight: .semibold))
@@ -716,7 +716,7 @@ struct LessonView: View {
                 .buttonStyle(PrimaryButton())
         case .play:
             if !runner.stepComplete {
-                Button(onScreen ? "Salta aquest pas" : "Continua sense comprovar") { runner.advance() }
+                Button(onScreen ? "Salta aquest pas" : "Continua sense comprovar") { runner.skip() }
                     .font(.body)
                     .foregroundStyle(Theme.soft)
                     .frame(minHeight: 44)
@@ -757,7 +757,7 @@ struct LessonView: View {
                     .buttonStyle(SecondaryButton())
                     .disabled(runner.isPlaying)
                 }
-                Button(onScreen ? "Salta aquest pas" : "Continua sense comprovar") { runner.advance() }
+                Button(onScreen ? "Salta aquest pas" : "Continua sense comprovar") { runner.skip() }
                     .font(.body)
                     .foregroundStyle(Theme.soft)
                     .frame(minHeight: 44)
@@ -792,6 +792,12 @@ struct LessonView: View {
 
     // MARK: Final
 
+    /// Només es diu que s'ha tocat la peça si no s'ha saltat cap pas.
+    private var finishedTitle: String {
+        guard lesson.isPiece, runner.skipped == 0 else { return runner.skipped > 0 ? "Lliçó recorreguda." : "Lliçó acabada." }
+        return lesson.number == 8 ? "Has tocat la teva primera peça." : "Has tocat la peça sencera."
+    }
+
     private var finishedView: some View {
         VStack(spacing: compact ? 10 : 22) {
             Spacer()
@@ -799,13 +805,21 @@ struct LessonView: View {
                 .font(.system(size: compact ? 48 : 76))
                 .foregroundStyle(Theme.sage)
                 .accessibilityHidden(true)
-            Text(lesson.isPiece ? (lesson.number == 8 ? "Has tocat la teva primera peça." : "Has tocat la peça sencera.") : "Lliçó acabada.")
+            Text(finishedTitle)
                 .font(Theme.serif(compact ? .title : .largeTitle, weight: .semibold))
                 .foregroundStyle(Theme.ink)
                 .multilineTextAlignment(.center)
             Text(lesson.title)
                 .font(Theme.serif(.title3))
                 .foregroundStyle(Theme.soft)
+            if runner.skipped > 0 {
+                Text(runner.skipped == 1
+                     ? "Un pas l'has saltat sense comprovar. Quan puguis, torna-hi."
+                     : "\(runner.skipped) passos els has saltat sense comprovar. Quan puguis, torna-hi.")
+                    .font(.body)
+                    .foregroundStyle(Theme.soft)
+                    .multilineTextAlignment(.center)
+            }
             Spacer()
             let layout = compact ? AnyLayout(HStackLayout(spacing: 12)) : AnyLayout(VStackLayout(spacing: 10))
             layout {

@@ -41,7 +41,7 @@ final class LessonRunner: ObservableObject {
     /// Tecla que toca ara en un ritme.
     @Published private(set) var rhythmTarget: Int?
     /// Quants cops del ritme o de l'exemple que sona han passat (0 al primer). Serveix per ensenyar per on va el pols.
-    @Published private(set) var rhythmBeat: Int?
+    @Published private(set) var rhythmBeat: Double?
     /// La tecla de l'altra mà, quan toca tocar-ne dues alhora.
     @Published private(set) var rhythmTargetAlso: Int?
     /// Posició de la nota que toca ara en un ritme.
@@ -156,6 +156,15 @@ final class LessonRunner: ObservableObject {
 
     // MARK: Avançar
 
+    /// Passos que l'alumne ha saltat sense que l'app els hagi pogut comprovar.
+    @Published private(set) var skipped = 0
+
+    /// Salta el pas sense comprovar-lo: la lliçó continua, però al final no es dirà que s'ha tocat tot.
+    func skip() {
+        skipped += 1
+        advance()
+    }
+
     func advance() {
         playback?.cancel()
         advancing?.cancel()
@@ -251,9 +260,13 @@ final class LessonRunner: ObservableObject {
 
         // Cops i notes, ordenats pel moment en què han de sonar. A part, per on va la peça (`rhythmBeat`),
         // perquè els punts de sota les notes s'encenguin com quan toca l'alumne, amb pols o sense.
-        var events: [(time: Double, tick: Int?, piece: Int?, tone: Tone?, index: Int)] = []
+        var events: [(time: Double, tick: Int?, piece: Double?, tone: Tone?, index: Int)] = []
         for tick in 0..<ticks { events.append((origin + Double(tick) * beat, tick, nil, nil, 0)) }
-        for piece in 0..<Int(total.rounded(.up)) { events.append((first + Double(piece) * beat, nil, piece, nil, 0)) }
+        // De mig cop en mig cop, perquè també s'encenguin les corxeres que cauen entre dos cops.
+        for half in 0..<Int((2 * total).rounded(.up)) {
+            let piece = Double(half) / 2
+            events.append((first + piece * beat, nil, piece, nil, 0))
+        }
         var at = first
         for (index, tone) in tones.enumerated() {
             events.append((at, nil, nil, tone, index))
@@ -324,11 +337,18 @@ final class LessonRunner: ObservableObject {
         let start = origin + 4 * beat
         patternStart = start
         let ticks = 4 + Int((judge.length / beat).rounded(.up))
+        let lag = inputDelay
 
         rhythmTask = Task { [weak self] in
-            for tick in 0..<ticks {
-                await LessonRunner.sleep(until: origin + Double(tick) * beat)
+            for half in 0..<(2 * ticks) {
+                await LessonRunner.sleep(until: origin + Double(half) / 2 * beat)
                 guard !Task.isCancelled, let self else { return }
+                // Al mig del cop només avança per on va la peça, perquè s'encenguin les corxeres que hi cauen.
+                if half % 2 == 1 {
+                    if half > 8 { self.rhythmBeat = Double(half) / 2 - 4 }
+                    continue
+                }
+                let tick = half / 2
                 let counting = tick < 4
                 // Amb un piano de debò el pols calla mentre toques, perquè el micròfon no el confongui amb una nota.
                 if counting || !microphone || own { self.audio?.click(accent: tick % 4 == 0) }
@@ -338,13 +358,15 @@ final class LessonRunner: ObservableObject {
                     self.showRhythmTarget()
                 }
                 if !counting {
-                    self.rhythmBeat = tick - 4
+                    self.rhythmBeat = Double(tick - 4)
                     self.rhythmPhase = .playing
-                    self.judge?.close(upTo: CACurrentMediaTime() - start)
+                    // Amb el mateix rellotge que els tocs: un toc que arriba tard pel retard del so o del micròfon
+                    // encara pot entrar dins del marge, i la nota no s'ha de donar per perduda abans d'hora.
+                    self.judge?.close(upTo: CACurrentMediaTime() - start - lag)
                     self.refreshRhythm()
                 }
             }
-            await LessonRunner.sleep(until: start + judge.length + (own ? 0 : judge.tolerance))
+            await LessonRunner.sleep(until: start + judge.length + (own ? 0 : judge.tolerance + lag))
             guard !Task.isCancelled, let self else { return }
             if own { self.askVerdict() } else { self.finishRhythm() }
         }
@@ -396,6 +418,11 @@ final class LessonRunner: ObservableObject {
         if all.count > 60_000 { all = String(all.suffix(30_000)) }
         all += "\(Date().formatted(date: .numeric, time: .standard)) \(text)\n"
         try? all.write(to: file, atomically: true, encoding: .utf8)
+    }
+
+    /// El màxim que es resta a un toc per comparar-lo amb el pols: el retard del so i, amb micròfon, el de sentir-lo.
+    private var inputDelay: Double {
+        (audio?.outputDelay ?? 0) + (usesMicrophone ? microphoneDelay : 0)
     }
 
     private func heardInRhythm(_ midi: Int, at moment: TimeInterval?) {

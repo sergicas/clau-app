@@ -47,6 +47,16 @@
 - **No provat:** amb un piano digital de debò i un cable de debò, ni a l'iPhone (només s'hi ha instal·lat). Tampoc dos dits alhora a la pantalla del telèfon. El cable és USB; per Bluetooth no s'ha fet res.
 - El projecte es regenera amb `xcodegen generate` quan s'afegeix un fitxer a Clau/.
 
+## Auditoria de ChatGPT (2026-11-25)
+- 17 punts sobre el commit 44eb4ba (abans de la L35). Gairebé tots són certs; en Sergi ha dit de començar pels arreglos petits.
+- **Fets:**
+  - 3: el jutge dona una nota per perduda amb el mateix rellotge que els tocs (`LessonRunner.inputDelay`), i el final espera aquest retard.
+  - 9: `rhythmBeat` va de mig cop en mig cop (Double), també als exemples: les corxeres a mig cop encenen el seu punt.
+  - 10: «Has tocat durant un silenci» només si el toc cau dins d'un silenci (`RhythmJudge.rests`); prova nova a `proves/main.swift`.
+  - 11: els passos saltats es compten (`LessonRunner.skip()`); el final diu «Lliçó recorreguda» i quants n'has saltat, i no «Has tocat la peça sencera». La lliçó continua quedant com a feta.
+  - 17: textos de les L11, L20, L22 (els dos quatres) i L25 (què és una octava).
+- **Pendents, per ordre:** mode d'escoltar-se a les L33–L34 amb micròfon (1); octava exacta amb pantalla i cable (2); comprovar que s'aguanta la nota a la pantalla (4); micròfon: errors, permisos, fils i filtre d'octaves (5, 6, 8), millor amb un piano de debò; L24 per graons (12, ho ha de decidir en Sergi); teclat en pantalles petites (13); compàs 3/4, alteracions i acords abans de les etapes 6–7 (14); publicar: política de privacitat dins l'app, Mac, fitxa (7, 15, 16).
+
 ## Decisions d'en Sergi
 - En els ritmes curts no es perdona una blanca escurçada. Per això el principiant simulat es queda a uns 30 % als passos difícils, i en Sergi ho vol així.
 - Mai simuladors d'iOS: les proves es fan a l'iPhone per cable.

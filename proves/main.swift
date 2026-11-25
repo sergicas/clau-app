@@ -135,6 +135,12 @@ let withRest = [Tone(midi: 60), Tone(midi: 60), Tone.rest(), Tone(midi: 60)]
 verify("Amb un silenci, a temps", perform(withRest, beat: 1).passed)
 let inRest = perform(withRest, beat: 1, extraAt: [2.0])
 verify("Tocar durant el silenci no val, i ho diu", !inRest.passed && inRest.verdict.contains("silenci"))
+// Un do de més entre el do i el re, lluny del silenci del quart cop: no s'ha tocat durant cap silenci.
+let restLater = [Tone(midi: 60), Tone(midi: 62), Tone(midi: 64), Tone.rest(), Tone(midi: 65)]
+let farFromRest = perform(restLater, beat: 1, extraAt: [0.5])
+verify("Una nota de més lluny del silenci no diu «silenci»", !farFromRest.passed && !farFromRest.verdict.contains("silenci"))
+let intoRest = perform(restLater, beat: 1, extraAt: [3.0])
+verify("Una nota de més dins del silenci sí que ho diu", !intoRest.passed && intoRest.verdict.contains("silenci"))
 let longNotes = [Tone(midi: 60, beats: 2), Tone(midi: 60, beats: 2)]
 verify("Tornar a tocar una nota llarga no val", !perform(longNotes, beat: 1, extraAt: [1.0]).passed)
 let halves = [Tone(midi: 60), Tone(midi: 60, beats: 0.5), Tone(midi: 62, beats: 0.5), Tone(midi: 64, beats: 2)]

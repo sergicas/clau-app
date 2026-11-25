@@ -21,13 +21,16 @@ struct RhythmJudge {
     private let notes: [Note]
     private let beat: Double
     private let toneCount: Int
-    private let hasRests: Bool
+    /// On són els silencis, en segons des del primer cop.
+    private let rests: [Range<Double>]
     private var marks: [Mark]
 
     private var extras = 0
     private var early = 0
     private var late = 0
     private var strays = 0
+    /// Tocs de més que han caigut dins d'un silenci.
+    private var restStrays = 0
     private var firstWrong: (heard: Int, wanted: Int)?
     /// Tot el que s'ha tocat, per poder explicar què ha passat.
     private var presses: [(midi: Int, time: Double, result: String)] = []
@@ -59,7 +62,9 @@ struct RhythmJudge {
     init(tones: [Tone], beat: Double, slack: Double = 0) {
         var time = 0.0
         var notes: [Note] = []
+        var rests: [Range<Double>] = []
         for (index, tone) in tones.enumerated() {
+            if tone.rest { rests.append(time..<(time + tone.beats * beat)) }
             if !tone.rest {
                 notes.append(Note(time: time, beats: tone.beats, pitchClass: Music.pitchClass(tone.midi), toneIndex: index))
                 // La nota de l'altra mà, que comença alhora: una nota més al mateix moment.
@@ -77,7 +82,7 @@ struct RhythmJudge {
         self.beat = beat
         length = time
         toneCount = tones.count
-        hasRests = tones.contains(where: \.rest)
+        self.rests = rests
         // Ample per a qui comença, però mai tant que dues notes seguides es confonguin.
         tolerance = max(0.12, min(0.30 * beat, 0.45 * gap)) + slack
         marks = Array(repeating: .pending, count: notes.count)
@@ -115,7 +120,7 @@ struct RhythmJudge {
 
         guard let index = nearest else {
             extras += 1
-            strays += 1
+            stray(at: time)
             presses.append((midi, time, "de més"))
             return nil
         }
@@ -178,9 +183,15 @@ struct RhythmJudge {
         if distance < 0.5 * beat {
             if time < notes[index].time { early += 1 } else { late += 1 }
         } else {
-            strays += 1
+            stray(at: time)
         }
         return nil
+    }
+
+    /// Un toc lluny de tota nota. Només es diu que és «durant un silenci» si cau de debò dins d'un silenci.
+    private mutating func stray(at time: Double) {
+        strays += 1
+        if rests.contains(where: { $0.contains(time) }) { restStrays += 1 }
     }
 
     /// La nota llarga escurçada explica que després vagi desplaçat només si no ha tornat a tocar bé cap nota entremig:
@@ -347,7 +358,7 @@ struct RhythmJudge {
         }
         if early > 0, early >= late { return "Vas avançat. Espera el cop abans de tocar." }
         if late > 0 { return "Vas tard. Toca just quan sona el cop." }
-        if strays > 0, hasRests { return "Has tocat durant un silenci. Allà no es toca." }
+        if restStrays > 0 { return "Has tocat durant un silenci. Allà no es toca." }
         if missed > 0 { return "T'has deixat alguna nota." }
         return "Hi ha hagut notes de més."
     }

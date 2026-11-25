@@ -430,10 +430,10 @@ enum Course {
     static let comptar = Lesson(
         id: "2-comptar", number: 11,
         title: "Comptar fins a quatre",
-        summary: "Els cops van de quatre en quatre",
+        summary: "Comptar els cops de quatre en quatre",
         minutes: 4,
         steps: [
-            .look(text: "Els cops es compten de quatre en quatre: u, dos, tres, quatre, u, dos, tres, quatre. L'u sona una mica més agut, perquè no et perdis.",
+            .look(text: "En aquests exercicis comptarem els cops de quatre en quatre: u, dos, tres, quatre, u, dos, tres, quatre. L'u sona una mica més agut, perquè no et perdis.",
                   picture: .symbol("4.circle.fill")),
             .listen(text: "Compta en veu alta mentre sona. Hi ha un do a cada u, i dura els quatre cops.",
                     tones: compasSencer, bpm: 66, keyboard: doKeyboard, pulse: true),
@@ -663,7 +663,7 @@ enum Course {
         summary: "Llegir el dibuix, no els noms",
         minutes: 5,
         steps: [
-            .look(text: "No cal dir el nom de cada nota. Mira el dibuix: si la següent és més amunt, toca el dit següent; si és més avall, l'anterior; si és a la mateixa altura, repeteix.",
+            .look(text: "No cal dir el nom de cada nota. Mira el dibuix: si la següent és un graó més amunt, toca el dit següent; si és un graó més avall, l'anterior; si és a la mateixa altura, repeteix.",
                   picture: .staff(Score(tones: tones([E, E, F, G])))),
             read("Comença en el mi, amb el dit 3, i segueix el dibuix. La reconeixeràs.", odaA, rounds: 1),
             .look(text: "De vegades la nota salta: de ratlla a ratlla, o d'espai a espai. Llavors et saltes una tecla i un dit.",
@@ -712,7 +712,7 @@ enum Course {
         summary: "Les ratlles verticals i els dos quatres",
         minutes: 7,
         steps: [
-            .look(text: "Les ratlles verticals parteixen la música en compassos. Els dos quatres del començament diuen que a cada compàs hi caben quatre cops.",
+            .look(text: "Les ratlles verticals parteixen la música en compassos. Al començament hi ha dos quatres: el de dalt diu que a cada compàs hi caben quatre cops, i el de baix, que cada cop és una negra.",
                   picture: .staff(Score(tones: Array(compasA.prefix(6)), bars: true, ends: false))),
             .look(text: "Per comptar, torna a començar a cada ratlla vertical: u, dos, tres, quatre. La ratlla doble del final vol dir que s'ha acabat.",
                   picture: .staff(Score(tones: compasA, bars: true))),
@@ -847,7 +847,7 @@ enum Course {
         steps: [
             .look(text: "La mà esquerra té els mateixos dits numerats: el polze és l'1 i el petit el 5. Però sobre el teclat van al revés: el petit queda a l'esquerra i el polze a la dreta.",
                   picture: .symbol("hand.raised.fingers.spread.fill")),
-            .look(text: "Posa el petit (dit 5) de la mà esquerra sobre el do que queda una octava més avall del do del mig, i un dit a cada tecla blanca. El polze (dit 1) queda sobre el sol.",
+            .look(text: "Posa el petit (dit 5) de la mà esquerra sobre el do anterior al do del mig. De l'un a l'altre hi ha vuit tecles blanques, comptant-hi tots dos: aquest camí fins a la nota del mateix nom es diu una octava. Després, un dit a cada tecla blanca. El polze (dit 1) queda sobre el sol.",
                   picture: .keyboard(leftNamed)),
             .listen(text: "Aquestes són les cinc notes de la mà esquerra. Són les mateixes que a la dreta, però més greus.",
                     tones: tones([lC, lD, lE, lF, lG]), bpm: 72, keyboard: leftNamed),
