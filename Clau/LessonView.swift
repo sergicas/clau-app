@@ -678,9 +678,15 @@ struct LessonView: View {
     private var listeningText: String {
         if !runner.message.isEmpty { return runner.message }
         if runner.selfChecked {
-            if runner.awaitingVerdict { return "Ha sonat com l'exemple, amb les dues mans alhora i a temps?" }
+            let together = runner.startsTogether
+            if runner.awaitingVerdict {
+                return together ? "Ha sonat com l'exemple, amb les dues mans alhora i a temps?"
+                    : "Ha sonat com l'exemple, a temps i amb la nota de sota aguantada?"
+            }
             switch runner.rhythmPhase {
-            case .idle: return "Amb dues notes alhora el micròfon no et pot corregir. Toca amb el pols, escolta't i digues-me tu com ha anat."
+            case .idle:
+                return together ? "Amb dues notes alhora el micròfon no et pot corregir. Toca amb el pols, escolta't i digues-me tu com ha anat."
+                    : "Mentre la nota de sota encara sona, el micròfon no et pot corregir. Toca amb el pols, escolta't i digues-me tu com ha anat."
             case .countIn: return "Encara no. Escolta els quatre cops."
             case .playing: return "Toca i escolta't."
             }

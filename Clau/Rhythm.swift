@@ -8,6 +8,9 @@ struct RhythmJudge {
     private struct Note {
         let time: Double
         let beats: Double
+        /// El que dura escrita: una nota de sota (`hold`) dura més que el que falta per a la següent.
+        let written: Double
+        let midi: Int
         let pitchClass: Int
         /// Posició dins la llista de `tones`, comptant-hi els silencis.
         let toneIndex: Int
@@ -15,6 +18,9 @@ struct RhythmJudge {
 
     /// Fins a quants segons abans o després del moment just encara compta.
     let tolerance: Double
+    /// Si cal la tecla exacta (també l'octava) o n'hi ha prou amb el nom de la nota. El micròfon de vegades salta d'octava;
+    /// la pantalla i el cable saben quina tecla és.
+    let exact: Bool
     /// Quant dura tot el ritme, amb l'última nota sencera.
     let length: Double
 
@@ -57,19 +63,25 @@ struct RhythmJudge {
     /// La primera tecla desplaçada de cada cantó, per poder-la dir: (la que s'ha tocat, la que tocava).
     private var firstUp: (heard: Int, wanted: Int)?
     private var firstDown: (heard: Int, wanted: Int)?
+    /// La primera nota bona però d'una altra octava: (la tecla que s'ha tocat, la que tocava).
+    private var firstOctave: (heard: Int, wanted: Int)?
+    /// Quina nota ha encertat cada tecla que encara està apretada, per saber quant s'aguanta.
+    private var down: [Int: Int] = [:]
+    /// Notes llargues que s'han deixat anar abans d'hora (només se sap amb la pantalla o amb el cable).
+    private var letGo: Set<Int> = []
 
-    /// `slack` afegeix marge, per quan les notes arriben pel micròfon.
-    init(tones: [Tone], beat: Double, slack: Double = 0) {
+    /// `slack` afegeix marge, per quan les notes arriben pel micròfon. `exact` demana la tecla exacta, amb l'octava.
+    init(tones: [Tone], beat: Double, slack: Double = 0, exact: Bool = false) {
         var time = 0.0
         var notes: [Note] = []
         var rests: [Range<Double>] = []
         for (index, tone) in tones.enumerated() {
             if tone.rest { rests.append(time..<(time + tone.beats * beat)) }
             if !tone.rest {
-                notes.append(Note(time: time, beats: tone.beats, pitchClass: Music.pitchClass(tone.midi), toneIndex: index))
+                notes.append(Note(time: time, beats: tone.beats, written: tone.written, midi: tone.midi, pitchClass: Music.pitchClass(tone.midi), toneIndex: index))
                 // La nota de l'altra mà, que comença alhora: una nota més al mateix moment.
                 if let also = tone.also {
-                    notes.append(Note(time: time, beats: tone.beats, pitchClass: Music.pitchClass(also), toneIndex: index))
+                    notes.append(Note(time: time, beats: tone.beats, written: tone.written, midi: also, pitchClass: Music.pitchClass(also), toneIndex: index))
                 }
             }
             time += tone.beats * beat
@@ -83,6 +95,7 @@ struct RhythmJudge {
         length = time
         toneCount = tones.count
         self.rests = rests
+        self.exact = exact
         // Ample per a qui comença, però mai tant que dues notes seguides es confonguin.
         tolerance = max(0.12, min(0.30 * beat, 0.45 * gap)) + slack
         marks = Array(repeating: .pending, count: notes.count)
@@ -93,12 +106,15 @@ struct RhythmJudge {
     mutating func heard(midi: Int, at time: Double) -> Mark? {
         close(upTo: time)
         let pitchClass = Music.pitchClass(midi)
+        // Amb què es compara cada nota: la tecla exacta o només el nom.
+        let key = exact ? midi : pitchClass
 
         // Una nota que s'havia tocat massa aviat i ara es toca al seu moment: compta bé, i el toc d'abans queda com a toc de més.
-        if let index = earlyClaims.first(where: { abs(time - notes[$0].time) <= tolerance && notes[$0].pitchClass == pitchClass }) {
+        if let index = earlyClaims.first(where: { abs(time - notes[$0].time) <= tolerance && self.key(of: $0) == key }) {
             earlyClaims.remove(index)
             offTime.remove(index)
             marks[index] = .hit
+            down[midi] = index
             early -= 1
             extras += 1
             presses.append((midi, time, "nota \(index + 1)"))
@@ -111,7 +127,7 @@ struct RhythmJudge {
         for index in notes.indices where isOpen(index) {
             let gap = abs(time - notes[index].time)
             // De dues notes que comencen alhora, la que és d'aquesta tecla.
-            let twin = nearest.map { abs(gap - distance) < 0.0001 && notes[index].pitchClass == pitchClass && notes[$0].pitchClass != pitchClass } ?? false
+            let twin = nearest.map { abs(gap - distance) < 0.0001 && self.key(of: index) == key && self.key(of: $0) != key } ?? false
             if gap < distance - 0.0001 || twin {
                 nearest = index
                 distance = gap
@@ -126,8 +142,9 @@ struct RhythmJudge {
         }
 
         if marks[index] == .pending, distance <= tolerance {
-            if pitchClass == notes[index].pitchClass {
+            if key == self.key(of: index) {
                 marks[index] = .hit
+                down[midi] = index
                 aheadRun = 0
                 behindRun = 0
                 presses.append((midi, time, "nota \(index + 1)"))
@@ -135,15 +152,20 @@ struct RhythmJudge {
             }
             // És la tecla d'una nota d'abans que encara no ha sonat: va endarrerit, no s'ha equivocat de tecla.
             // La de la nota següent no compta així: quan cau just al cop, el més normal és haver relliscat a la tecla del costat.
-            if let neighbour = neighbour(of: index, pitchClass: pitchClass, at: time, behindOnly: true) {
+            if let neighbour = neighbour(of: index, key: key, at: time, behindOnly: true) {
                 playedOffTime(neighbour, midi: midi, at: time)
                 return nil
             }
             marks[index] = .wrong
-            if firstWrong == nil { firstWrong = (midi, notes[index].pitchClass) }
+            // El nom és bo però l'octava no: és una altra tecla, i cal dir-ho així.
+            if pitchClass == notes[index].pitchClass {
+                if firstOctave == nil { firstOctave = (midi, notes[index].midi) }
+            } else if firstWrong == nil {
+                firstWrong = (midi, notes[index].pitchClass)
+            }
             // Tres o més seguides amb la tecla de la nota següent (o de l'anterior): no és una relliscada, és que s'ha perdut.
-            let next = index + 1 < notes.count && notes[index + 1].pitchClass == pitchClass
-            let previous = index > 0 && notes[index - 1].pitchClass == pitchClass
+            let next = index + 1 < notes.count && self.key(of: index + 1) == key
+            let previous = index > 0 && self.key(of: index - 1) == key
             aheadRun = next ? aheadRun + 1 : 0
             behindRun = previous ? behindRun + 1 : 0
             if next { aheadKeys += 1 }
@@ -164,11 +186,11 @@ struct RhythmJudge {
 
         // Fora del marge. Si és la tecla d'aquesta nota (o de la del costat) i no queda lluny, és aquella nota tocada a deshora:
         // compta com un sol error, no com una nota perduda més un toc de més.
-        if distance < beat, pitchClass == notes[index].pitchClass {
+        if distance < beat, key == self.key(of: index) {
             playedOffTime(index, midi: midi, at: time)
             return nil
         }
-        if let neighbour = neighbour(of: index, pitchClass: pitchClass, at: time) {
+        if let neighbour = neighbour(of: index, key: key, at: time) {
             playedOffTime(neighbour, midi: midi, at: time)
             return nil
         }
@@ -186,6 +208,21 @@ struct RhythmJudge {
             stray(at: time)
         }
         return nil
+    }
+
+    /// La tecla que s'ha d'encertar per a aquesta nota: exacta, o només el nom.
+    private func key(of index: Int) -> Int {
+        exact ? notes[index].midi : notes[index].pitchClass
+    }
+
+    /// S'ha deixat anar una tecla. Una nota de dos cops o més s'ha d'aguantar gairebé fins al final:
+    /// es dona mig cop de marge, per poder aixecar el dit just abans de la nota següent.
+    mutating func released(midi: Int, at time: Double) {
+        guard let index = down.removeValue(forKey: midi), marks[index] == .hit else { return }
+        let note = notes[index]
+        guard note.written >= 2, time < note.time + (note.written - 0.5) * beat else { return }
+        letGo.insert(index)
+        presses.append((midi, time, "nota \(index + 1) deixada anar a \(String(format: "%.1f", (time - note.time) / beat)) de \(Int(note.written)) cops"))
     }
 
     /// Un toc lluny de tota nota. Només es diu que és «durant un silenci» si cau de debò dins d'un silenci.
@@ -215,9 +252,9 @@ struct RhythmJudge {
     /// Una nota de prop (fins a dues abans o després), si és d'aquesta tecla i encara es pot tocar: qui va avançat o endarrerit
     /// dins de la melodia. Com a molt, a la distància que hi ha entre les dues notes, i mai més de dos cops (més el marge):
     /// una nota tocada quatre cops tard no és aquella nota. Primer les més properes.
-    private func neighbour(of index: Int, pitchClass: Int, at time: Double, behindOnly: Bool = false) -> Int? {
+    private func neighbour(of index: Int, key: Int, at time: Double, behindOnly: Bool = false) -> Int? {
         (behindOnly ? [index - 1, index - 2] : [index - 1, index + 1, index - 2, index + 2]).first { other in
-            notes.indices.contains(other) && isOpen(other) && notes[other].pitchClass == pitchClass
+            notes.indices.contains(other) && isOpen(other) && self.key(of: other) == key
                 && abs(time - notes[other].time) <= min(abs(notes[other].time - notes[index].time), 2 * beat) + tolerance
         }
     }
@@ -259,7 +296,7 @@ struct RhythmJudge {
         var seen: Set<Int> = []
         for (index, note) in notes.enumerated() {
             // Dues notes alhora fan una sola marca: només és bona si ho són totes dues.
-            let mark = marks[index]
+            let mark = letGo.contains(index) ? .wrong : marks[index]
             if seen.insert(note.toneIndex).inserted {
                 result[note.toneIndex] = mark
             } else if mark != .hit, result[note.toneIndex] == .hit || mark == .wrong || (mark == .missed && result[note.toneIndex] == .pending) {
@@ -277,7 +314,7 @@ struct RhythmJudge {
     private var missed: Int { marks.filter { $0 == .missed }.count }
     private var wrong: Int { marks.filter { $0 == .wrong }.count }
 
-    var errors: Int { missed + wrong + extras }
+    var errors: Int { missed + wrong + extras + letGo.count }
 
     /// En un ritme curt han de sortir totes; en un de llarg es perdona una nota de cada vuit.
     var passed: Bool { errors <= notes.count / 8 }
@@ -352,6 +389,14 @@ struct RhythmJudge {
         if let cutShort {
             let beats = Int(cutShort.beats)
             return "La nota \(cutShort.number) dura \(beats) cops. Aguanta-la fins que hagin passat tots \(beats) i llavors toca la següent."
+        }
+        if let first = letGo.min() {
+            let beats = Int(notes[first].written)
+            return "La nota \(ordinal(of: first)) dura \(beats) cops. Mantén la tecla apretada fins que hagin passat tots \(beats)."
+        }
+        if let firstOctave {
+            let name = Music.names[Music.pitchClass(firstOctave.wanted)]
+            return "Aquí anava un \(name) més \(firstOctave.wanted < firstOctave.heard ? "avall" : "amunt"). Mira quina tecla s'encén."
         }
         if let firstWrong {
             return "Has tocat \(Music.names[Music.pitchClass(firstWrong.heard)]) on anava \(Music.names[firstWrong.wanted])."

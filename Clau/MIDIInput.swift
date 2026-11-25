@@ -9,6 +9,8 @@ final class MIDIInput: ObservableObject {
 
     /// S'avisa al fil principal cada vegada que es prem una tecla: quina i en quin moment (el rellotge de `CACurrentMediaTime`).
     var onNote: ((Int, TimeInterval) -> Void)?
+    /// Una tecla que s'ha deixat anar, amb el seu instant: per saber si s'ha aguantat una nota llarga.
+    var onRelease: ((Int, TimeInterval) -> Void)?
 
     private var client = MIDIClientRef()
     private var port = MIDIPortRef()
@@ -59,6 +61,7 @@ final class MIDIInput: ObservableObject {
 
     private func receive(_ list: UnsafePointer<MIDIEventList>) {
         var notes: [(Int, TimeInterval)] = []
+        var releases: [(Int, TimeInterval)] = []
         for packet in list.unsafeSequence() {
             let stamp = packet.pointee.timeStamp
             let time = stamp == 0 ? CACurrentMediaTime() : Double(stamp) * MIDIInput.secondsPerTick
@@ -69,11 +72,14 @@ final class MIDIInput: ObservableObject {
                 let note = Int((word >> 8) & 0x7F)
                 let velocity = word & 0x7F
                 if status == 0x90, velocity > 0 { notes.append((note, time)) }
+                // Deixar anar: «nota apagada», o «nota encesa» amb força zero, com fan molts pianos.
+                if status == 0x80 || (status == 0x90 && velocity == 0) { releases.append((note, time)) }
             }
         }
-        guard !notes.isEmpty else { return }
+        guard !notes.isEmpty || !releases.isEmpty else { return }
         DispatchQueue.main.async { [weak self] in
             for (note, time) in notes { self?.onNote?(note, time) }
+            for (note, time) in releases { self?.onRelease?(note, time) }
         }
     }
 }

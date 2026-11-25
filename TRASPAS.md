@@ -55,7 +55,12 @@
   - 10: «Has tocat durant un silenci» només si el toc cau dins d'un silenci (`RhythmJudge.rests`); prova nova a `proves/main.swift`.
   - 11: els passos saltats es compten (`LessonRunner.skip()`); el final diu «Lliçó recorreguda» i quants n'has saltat, i no «Has tocat la peça sencera». La lliçó continua quedant com a feta.
   - 17: textos de les L11, L20, L22 (els dos quatres) i L25 (què és una octava).
-- **Pendents, per ordre:** mode d'escoltar-se a les L33–L34 amb micròfon (1); octava exacta amb pantalla i cable (2); comprovar que s'aguanta la nota a la pantalla (4); micròfon: errors, permisos, fils i filtre d'octaves (5, 6, 8), millor amb un piano de debò; L24 per graons (12, ho ha de decidir en Sergi); teclat en pantalles petites (13); compàs 3/4, alteracions i acords abans de les etapes 6–7 (14); publicar: política de privacitat dins l'app, Mac, fitxa (7, 15, 16).
+- **Fets després (mateix dia):**
+  - 1: amb micròfon, els passos on la nota de sota encara sona quan entra la melodia (`hold`) van al mode d'escoltar-se (`LessonRunner.selfChecked`): L33 passos 5, 7, 9 i 10; L34 passos 4, 6, 7, 9 i 10. El text diu «Mentre la nota de sota encara sona, el micròfon no et pot corregir».
+  - 2: amb la pantalla o el cable, quan el pas té notes de la mà esquerra el jutge demana la tecla exacta (`RhythmJudge.exact`). Si el nom és bo i l'octava no, diu «Aquí anava un do més avall». Amb micròfon n'hi ha prou amb el nom.
+  - 4: amb la pantalla o el cable, una nota de dos cops o més s'ha d'aguantar fins a mig cop abans del final (`RhythmJudge.released`). Si no, la marca surt malament i diu «Mantén la tecla apretada». El cable també passa quan s'aixeca la tecla (`MIDIInput.onRelease`).
+  - `proves/llico.sh <lliçó> [desplaçament] [bé|solta|octava]`: fa córrer el LessonRunner de debò i ara també aixeca els dits. L'alumne simulat no aixeca els dits ni s'equivoca d'octava: les seves xifres no canvien.
+- **Pendents, per ordre:** micròfon: errors, permisos, fils i filtre d'octaves (5, 6, 8), millor amb un piano de debò; L24 per graons (12, ho ha de decidir en Sergi); teclat en pantalles petites (13); compàs 3/4, alteracions i acords abans de les etapes 6–7 (14); publicar: política de privacitat dins l'app, Mac, fitxa (7, 15, 16).
 
 ## Decisions d'en Sergi
 - En els ritmes curts no es perdona una blanca escurçada. Per això el principiant simulat es queda a uns 30 % als passos difícils, i en Sergi ho vol així.

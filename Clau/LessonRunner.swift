@@ -55,10 +55,17 @@ final class LessonRunner: ObservableObject {
     /// Les notes arriben pel micròfon, que només en sent una cada vegada.
     var usesMicrophone: Bool { instrument == .real && !cable }
 
-    /// Un pas amb dues notes que comencen alhora, tocat amb un piano que només se sent pel micròfon:
-    /// l'app no el pot corregir. Marca el pols, l'alumne toca, s'escolta i diu ell si ha sortit bé.
+    /// Un pas amb dues notes que sonen alhora, tocat amb un piano que només se sent pel micròfon: l'app no el pot corregir.
+    /// Pot ser que comencin alhora (`also`) o que la nota de sota encara soni quan entra la de dalt (`hold`): el micròfon
+    /// només sent una nota i pot sentir la de sota. Marca el pols, l'alumne toca, s'escolta i diu ell si ha sortit bé.
     var selfChecked: Bool {
         guard usesMicrophone, case .rhythm(_, let tones, _, _, _) = step else { return false }
+        return tones.contains { $0.also != nil || $0.written > $0.beats + 0.001 }
+    }
+
+    /// Al pas de tocar a temps, dues notes comencen alhora (i no només s'aguanta la de sota).
+    var startsTogether: Bool {
+        guard case .rhythm(_, let tones, _, _, _) = step else { return false }
         return tones.contains { $0.also != nil }
     }
 
@@ -115,6 +122,7 @@ final class LessonRunner: ObservableObject {
         if !ClauApp.isTest { midi.start() }
         cable = midi.connected
         midi.onNote = { [weak self] note, time in self?.cableNote(note, at: time) }
+        midi.onRelease = { [weak self] note, time in self?.releasedInRhythm(note, at: time) }
         cableWatch = midi.$connected.receive(on: DispatchQueue.main).sink { [weak self] on in self?.cableChanged(on) }
         if !ClauApp.isTest { audio.start(microphone: usesMicrophone) }
         audio.onNote = { [weak self] midi in
@@ -151,6 +159,7 @@ final class LessonRunner: ObservableObject {
         audio?.setListening(false)
         audio?.onNote = nil
         midi?.onNote = nil
+        midi?.onRelease = nil
         cableWatch = nil
     }
 
@@ -230,6 +239,8 @@ final class LessonRunner: ObservableObject {
 
     func keyReleased(_ midi: Int) {
         if let voice = heldVoices.removeValue(forKey: midi) { audio?.noteOff(voice) }
+        guard instrument == .screen else { return }
+        releasedInRhythm(midi, at: nil)
     }
 
     // MARK: Escoltar
@@ -323,7 +334,10 @@ final class LessonRunner: ObservableObject {
         let microphone = usesMicrophone
         // Dues notes alhora pel micròfon: no es jutja res. Només es marca el pols i després l'alumne diu com ha anat.
         let own = selfChecked
-        let judge = RhythmJudge(tones: tones, beat: beat, slack: microphone ? 0.06 : 0)
+        // La pantalla i el cable saben quina tecla és: quan hi ha notes de la mà esquerra, l'octava també compta.
+        // Pel micròfon, no: de vegades salta d'octava, i n'hi ha prou amb el nom.
+        let leftHand = tones.contains { !$0.rest && ($0.midi < 60 || ($0.also ?? 60) < 60) }
+        let judge = RhythmJudge(tones: tones, beat: beat, slack: microphone ? 0.06 : 0, exact: !microphone && leftHand)
         self.judge = own ? nil : judge
         marks = own ? Array(repeating: .pending, count: tones.count) : judge.toneMarks
         awaitingVerdict = false
@@ -435,6 +449,14 @@ final class LessonRunner: ObservableObject {
         // Mentre es compta no es jutja res, tret de qui entra massa aviat: l'últim cop d'entrada ja compta.
         guard time > -1.5 * beatLength else { return }
         judge.heard(midi: midi, at: time)
+        self.judge = judge
+        refreshRhythm()
+    }
+
+    /// S'ha deixat anar una tecla (pantalla o cable) mentre es toca a temps: el jutge mira si s'ha aguantat prou la nota.
+    private func releasedInRhythm(_ midi: Int, at moment: TimeInterval?) {
+        guard rhythmPhase != .idle, !usesMicrophone, var judge else { return }
+        judge.released(midi: midi, at: (moment ?? CACurrentMediaTime()) - patternStart - (audio?.outputDelay ?? 0))
         self.judge = judge
         refreshRhythm()
     }

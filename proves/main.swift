@@ -103,8 +103,8 @@ func verify(_ name: String, _ condition: Bool) {
 }
 
 /// Toca un ritme tal com és, amb cada nota desplaçada `offset` segons.
-func perform(_ tones: [Tone], beat: Double, offset: Double = 0, skip: Set<Int> = [], extraAt: [Double] = [], wrongAt: Set<Int> = []) -> RhythmJudge {
-    var judge = RhythmJudge(tones: tones, beat: beat)
+func perform(_ tones: [Tone], beat: Double, offset: Double = 0, skip: Set<Int> = [], extraAt: [Double] = [], wrongAt: Set<Int> = [], exact: Bool = false) -> RhythmJudge {
+    var judge = RhythmJudge(tones: tones, beat: beat, exact: exact)
     var presses: [(time: Double, midi: Int)] = []
     var time = 0.0
     for (index, tone) in tones.enumerated() {
@@ -312,6 +312,57 @@ refetJudge.close(upTo: .infinity)
 verify("Blanca escurçada al principi, refet, i perdut més tard: diu «per davant»", refetJudge.verdict.contains("una nota per davant"))
 
 // Dues mans alhora: dues notes al mateix moment.
+print("Octava i notes aguantades")
+do {
+    // Do greu i do del mig: amb la tecla exacta, el do del mig no val per al greu.
+    let low = [Tone(midi: 48), Tone(midi: 60), Tone(midi: 48), Tone(midi: 60)]
+    func play(_ keys: [Int], exact: Bool) -> RhythmJudge {
+        var judge = RhythmJudge(tones: low, beat: 1, exact: exact)
+        for (i, key) in keys.enumerated() { judge.heard(midi: key, at: Double(i)) }
+        judge.close(upTo: .infinity)
+        return judge
+    }
+    verify("Tecla exacta: les octaves bones passen", play([48, 60, 48, 60], exact: true).passed)
+    let octave = play([60, 60, 60, 60], exact: true)
+    verify("Tecla exacta: el do del mig no val per al greu, i ho diu", !octave.passed && octave.verdict.contains("do més avall"))
+    verify("Sense tecla exacta (micròfon): el nom basta", play([60, 60, 60, 60], exact: false).passed)
+    let wrongName = play([48, 62, 48, 60], exact: true)
+    verify("Tecla exacta: una nota de nom equivocat ho continua dient així", !wrongName.passed && wrongName.verdict.contains("Has tocat re on anava do"))
+
+    // Una blanca i una negra, a la pantalla: es mira quan s'aixeca el dit.
+    let half = [Tone(midi: 60, beats: 2), Tone(midi: 62), Tone(midi: 64)]
+    func hold(_ release: Double?) -> RhythmJudge {
+        var judge = RhythmJudge(tones: half, beat: 1)
+        judge.heard(midi: 60, at: 0)
+        if let release { judge.released(midi: 60, at: release) }
+        judge.heard(midi: 62, at: 2)
+        judge.released(midi: 62, at: 2.2)
+        judge.heard(midi: 64, at: 3)
+        judge.close(upTo: .infinity)
+        return judge
+    }
+    verify("Blanca aguantada fins al final: passa", hold(1.95).passed)
+    verify("Blanca deixada anar mig cop abans: encara passa", hold(1.55).passed)
+    let short = hold(0.4)
+    verify("Blanca deixada anar de seguida: no passa, i ho diu", !short.passed && short.verdict.contains("Mantén la tecla apretada"))
+    verify("Blanca deixada anar: la marca surt malament", short.toneMarks == [.wrong, .hit, .hit])
+    verify("Sense saber quan s'aixeca (micròfon): passa", hold(nil).passed)
+
+    // La nota de sota de la L33: una rodona que s'aguanta mentre la dreta toca.
+    let bass = [Tone(midi: 48, beats: 1, hold: 4), Tone(midi: 64), Tone(midi: 64), Tone(midi: 64)]
+    var early = RhythmJudge(tones: bass, beat: 1, exact: true)
+    early.heard(midi: 48, at: 0); early.released(midi: 48, at: 1.1)
+    for t in 1...3 { early.heard(midi: 64, at: Double(t)) }
+    early.close(upTo: .infinity)
+    verify("Nota de sota deixada anar al segon cop: no passa", !early.passed && early.verdict.contains("dura 4 cops"))
+    var kept = RhythmJudge(tones: bass, beat: 1, exact: true)
+    kept.heard(midi: 48, at: 0)
+    for t in 1...3 { kept.heard(midi: 64, at: Double(t)) }
+    kept.released(midi: 48, at: 3.9)
+    kept.close(upTo: .infinity)
+    verify("Nota de sota aguantada: passa", kept.passed)
+}
+
 print("Dues notes alhora")
 let junts = [Tone(midi: 60, also: 48), Tone(midi: 62, also: 50), Tone(midi: 64, beats: 2, also: 52)]
 var totesDues = RhythmJudge(tones: junts, beat: 1)
@@ -346,7 +397,7 @@ for lesson in Course.allLessons {
             failures += 1
             print("  MAL  lliçó \(lesson.number): un ritme dura \(beats) cops i no fa compassos sencers")
         }
-        if !perform(tones, beat: 60 / bpm).passed {
+        if !perform(tones, beat: 60 / bpm).passed || !perform(tones, beat: 60 / bpm, exact: true).passed {
             failures += 1
             print("  MAL  lliçó \(lesson.number): un ritme tocat perfecte no passa")
         }

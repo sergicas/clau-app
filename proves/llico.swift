@@ -2,7 +2,9 @@ import Foundation
 import QuartzCore
 
 // Fa córrer una lliçó de debò (el mateix LessonRunner de l'app) al Mac, tocant les notes al seu moment.
-// Serveix per veure què diu l'app quan es toca un ritme bé: proves/llico.sh <número de lliçó>
+// Serveix per veure què diu l'app quan es toca un ritme bé: proves/llico.sh <número de lliçó> [desplaçament] [manera]
+// Manera: «bé» (per defecte: cada dit s'aixeca just abans del final de la nota), «solta» (les notes llargues
+// es deixen anar al cap de mig cop) o «octava» (les notes de la mà esquerra, una octava més amunt).
 
 enum ClauApp { static let isTest = false }
 
@@ -20,13 +22,23 @@ final class AudioEngine {
     var outputDelay: Double { 0 }
 }
 
+/// Cap piano per cable: tot es toca a la pantalla.
+final class MIDIInput: ObservableObject {
+    @Published var connected = false
+    var onNote: ((Int, TimeInterval) -> Void)?
+    var onRelease: ((Int, TimeInterval) -> Void)?
+    func start() {}
+}
+
+enum Way: String { case good = "bé", letGo = "solta", octave = "octava" }
+
 @MainActor
-func run(lessonNumber: Int, offset: Double) async -> Bool {
-    guard let lesson = Course.allLessons.first(where: { $0.number == lessonNumber }) else { return false }
+func run(lessonNumber: Int, offset: Double, way: Way) async -> [String] {
+    guard let lesson = Course.allLessons.first(where: { $0.number == lessonNumber }) else { return ["no hi ha la lliçó"] }
     let audio = AudioEngine()
     let runner = LessonRunner(lesson: lesson, instrument: .screen)
-    runner.begin(audio: audio)
-    var allGood = true
+    runner.begin(audio: audio, midi: MIDIInput())
+    var failed: [String] = []
 
     while !runner.finished {
         guard case .rhythm(let text, let tones, let bpm, let rounds, _) = runner.step else {
@@ -44,20 +56,31 @@ func run(lessonNumber: Int, offset: Double) async -> Bool {
             // Espera els quatre cops d'entrada i toca cada nota quan toca, seguint els cops que sonen.
             while audio.clicks.count < 4 { try? await Task.sleep(for: .milliseconds(5)) }
             let first = audio.clicks[3] + beat
+            // Primer es fa la llista de quan s'enfonsa i quan s'aixeca cada tecla, i després es toca en ordre.
+            var events: [(time: Double, midi: Int, down: Bool)] = []
             var at = first
             for tone in tones {
                 if !tone.rest {
-                    let wait = at + offset - CACurrentMediaTime()
-                    if wait > 0 { try? await Task.sleep(for: .seconds(wait), tolerance: .zero) }
-                    runner.keyPressed(tone.midi, at: CACurrentMediaTime())
+                    for key in [tone.midi] + (tone.also.map { [$0] } ?? []) {
+                        let played = way == .octave && key < 60 ? key + 12 : key
+                        let lift = way == .letGo && tone.written >= 2 ? 0.5 : tone.written - 0.15
+                        events.append((at + offset, played, true))
+                        events.append((at + offset + lift * beat, played, false))
+                    }
                 }
                 at += tone.beats * beat
+            }
+            events.sort { $0.time < $1.time || ($0.time == $1.time && !$0.down) }
+            for event in events {
+                let wait = event.time - CACurrentMediaTime()
+                if wait > 0 { try? await Task.sleep(for: .seconds(wait), tolerance: .zero) }
+                if event.down { runner.keyPressed(event.midi, at: CACurrentMediaTime()) } else { runner.keyReleased(event.midi) }
             }
             // Fins que l'app digui com ha anat.
             while runner.rhythmPhase != .idle { try? await Task.sleep(for: .milliseconds(20)) }
             let marks = runner.marks.map { "\($0)".prefix(1) }.joined()
             print("     volta \(attempts): \(runner.mood == .wrong ? "MAL" : "bé ") [\(marks)] \(runner.message)")
-            if runner.mood == .wrong { allGood = false; break }
+            if runner.mood == .wrong { failed.append("pas \(index + 1): \(runner.message)"); break }
             try? await Task.sleep(for: .seconds(0.3))
             // L'app torna a començar sola després d'una volta bona.
             while runner.stepIndex == index, !runner.finished, runner.rhythmPhase == .idle, !runner.stepComplete, attempts < rounds {
@@ -68,7 +91,7 @@ func run(lessonNumber: Int, offset: Double) async -> Bool {
             if runner.mood == .wrong { runner.advance() } else { try? await Task.sleep(for: .milliseconds(50)) }
         }
     }
-    return allGood
+    return failed
 }
 
 @main
@@ -76,9 +99,10 @@ struct Main {
     static func main() async {
         let number = CommandLine.arguments.count > 1 ? Int(CommandLine.arguments[1]) ?? 21 : 21
         let offset = CommandLine.arguments.count > 2 ? Double(CommandLine.arguments[2]) ?? 0 : 0
-        print("Lliçó \(number), tocant \(offset == 0 ? "just al cop" : "\(offset) s desplaçat")")
-        let good = await run(lessonNumber: number, offset: offset)
-        print(good ? "Tot bé." : "Hi ha ritmes que surten malament tocant-los bé.")
-        exit(good ? 0 : 1)
+        let way = CommandLine.arguments.count > 3 ? Way(rawValue: CommandLine.arguments[3]) ?? .good : .good
+        print("Lliçó \(number), tocant \(offset == 0 ? "just al cop" : "\(offset) s desplaçat"), manera «\(way.rawValue)»")
+        let failed = await run(lessonNumber: number, offset: offset, way: way)
+        print(failed.isEmpty ? "Tot bé." : "Passos que no passen: \(failed.count).")
+        exit(failed.isEmpty ? 0 : 1)
     }
 }

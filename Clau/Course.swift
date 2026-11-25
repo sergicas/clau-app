@@ -19,7 +19,7 @@ struct Tone: Equatable {
     /// Un silenci: dura, però no sona.
     var rest = false
     /// Una nota de sota que s'aguanta: sona i s'escriu així de llarga, però la següent comença al cap de `beats`,
-    /// mentre aquesta encara sona. Mai comencen dues notes alhora: el micròfon només en sent una.
+    /// mentre aquesta encara sona. Pel micròfon l'app no ho pot corregir (només sent una nota): l'alumne s'escolta.
     var hold: Double?
     /// Una segona nota que comença alhora, amb l'altra mà. El micròfon no les sent totes dues: només es comproven
     /// amb el teclat de la pantalla o amb un piano connectat per cable; si no, l'alumne s'escolta.
