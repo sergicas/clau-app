@@ -145,7 +145,7 @@ El micròfon només sent bé **una nota cada vegada**. Això marca el curs:
 - **Etapa 5** (dues mans): pot seguir la melodia, però no la mà esquerra quan sonen alhora.
 - **Etapa 7** (acords): pot comprovar un acord trencat, nota a nota, però no un acord ple.
 
-On el micròfon no arriba hi ha dues sortides, i caldrà triar-ne una quan s'hi arribi:
+On el micròfon no arriba hi ha dues sortides. En Sergi les ha triat totes dues el 25-11-2026 i estan fetes des de la lliçó 35: amb cable l'app corregeix, i sense cable l'alumne s'escolta.
 
 - que l'alumne s'escolti i decideixi ell si ha sortit bé, comparant amb l'exemple;
 - connectar un piano digital amb un cable, que sí que diu a l'app totes les notes que es toquen.

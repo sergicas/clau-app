@@ -3,6 +3,7 @@ import SwiftUI
 @main
 struct ClauApp: App {
     @StateObject private var audio = AudioEngine()
+    @StateObject private var midi = MIDIInput()
     @StateObject private var progress = LessonProgress(defaults: ClauApp.isTest ? (UserDefaults(suiteName: "prova") ?? .standard) : .standard)
 
     /// Les proves automàtiques obren l'app amb «-prova»: sense micròfon i sense desar el progrés.
@@ -11,8 +12,11 @@ struct ClauApp: App {
     var body: some Scene {
         WindowGroup {
             CourseView()
-                .onAppear { if ClauApp.isTest { progress.reset() } }
+                .onAppear {
+                    if ClauApp.isTest { progress.reset() } else { midi.start() }
+                }
                 .environmentObject(audio)
+                .environmentObject(midi)
                 .environmentObject(progress)
                 .preferredColorScheme(.light)
         }

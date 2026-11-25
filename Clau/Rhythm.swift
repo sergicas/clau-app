@@ -32,7 +32,7 @@ struct RhythmJudge {
     /// Tot el que s'ha tocat, per poder explicar què ha passat.
     private var presses: [(midi: Int, time: Double, result: String)] = []
     /// La primera nota llarga que no s'ha esperat prou: quina és i quants cops dura.
-    private var cutShort: (note: Int, beats: Double)?
+    private var cutShort: (note: Int, beats: Double, number: Int)?
     /// Notes que s'han tocat amb la tecla bona però a deshora.
     private var offTime: Set<Int> = []
     /// D'aquestes, les que s'han tocat abans d'hora: encara es poden tocar bé al seu moment.
@@ -62,11 +62,16 @@ struct RhythmJudge {
         for (index, tone) in tones.enumerated() {
             if !tone.rest {
                 notes.append(Note(time: time, beats: tone.beats, pitchClass: Music.pitchClass(tone.midi), toneIndex: index))
+                // La nota de l'altra mà, que comença alhora: una nota més al mateix moment.
+                if let also = tone.also {
+                    notes.append(Note(time: time, beats: tone.beats, pitchClass: Music.pitchClass(also), toneIndex: index))
+                }
             }
             time += tone.beats * beat
         }
         var gap = beat
-        for (current, next) in zip(notes, notes.dropFirst()) { gap = min(gap, next.time - current.time) }
+        // Les notes que comencen alhora no compten: entre elles no hi ha cap espai per confondre.
+        for (current, next) in zip(notes, notes.dropFirst()) where next.time - current.time > 0.001 { gap = min(gap, next.time - current.time) }
 
         self.notes = notes
         self.beat = beat
@@ -100,7 +105,9 @@ struct RhythmJudge {
         var distance = Double.infinity
         for index in notes.indices where isOpen(index) {
             let gap = abs(time - notes[index].time)
-            if gap < distance {
+            // De dues notes que comencen alhora, la que és d'aquesta tecla.
+            let twin = nearest.map { abs(gap - distance) < 0.0001 && notes[index].pitchClass == pitchClass && notes[$0].pitchClass != pitchClass } ?? false
+            if gap < distance - 0.0001 || twin {
                 nearest = index
                 distance = gap
             }
@@ -163,9 +170,9 @@ struct RhythmJudge {
 
         presses.append((midi, time, "fora de temps, a prop de la nota \(index + 1)"))
         // Si la nota d'abans era llarga i s'ha tocat la següent abans d'hora, és que no s'ha esperat.
-        if cutShort == nil, time < notes[index].time, index > 0, notes[index - 1].beats >= 2,
-           marks[index - 1] == .hit || offTime.contains(index - 1) {
-            cutShort = (index, notes[index - 1].beats)
+        if cutShort == nil, time < notes[index].time, let before = previous(of: index), notes[before].beats >= 2,
+           marks[before] == .hit || offTime.contains(before) {
+            cutShort = (index, notes[before].beats, ordinal(of: before))
         }
         extras += 1
         if distance < 0.5 * beat {
@@ -212,10 +219,20 @@ struct RhythmJudge {
         if ahead { early += 1; earlyClaims.insert(index) } else { late += 1 }
         presses.append((midi, time, "nota \(index + 1), \(ahead ? "abans" : "després") d'hora"))
         // Si la nota d'abans era llarga i aquesta ha arribat abans d'hora, és que no s'ha esperat.
-        if cutShort == nil, ahead, index > 0, notes[index - 1].beats >= 2,
-           marks[index - 1] == .hit || offTime.contains(index - 1) {
-            cutShort = (index, notes[index - 1].beats)
+        if cutShort == nil, ahead, let before = previous(of: index), notes[before].beats >= 2,
+           marks[before] == .hit || offTime.contains(before) {
+            cutShort = (index, notes[before].beats, ordinal(of: before))
         }
+    }
+
+    /// La nota d'abans: l'última que comença abans que aquesta (les que comencen alhora no ho són).
+    private func previous(of index: Int) -> Int? {
+        notes.indices.last { $0 < index && notes[$0].time < notes[index].time - 0.001 }
+    }
+
+    /// Quina nota és, comptant com la compta qui llegeix: dues que comencen alhora són una de sola.
+    private func ordinal(of index: Int) -> Int {
+        Set(notes.filter { $0.time <= notes[index].time + 0.001 }.map(\.toneIndex)).count
     }
 
     /// Dona per perdudes les notes que ja haurien d'haver sonat.
@@ -228,7 +245,16 @@ struct RhythmJudge {
     /// Una marca per cada element de `tones`; els silencis queden sempre pendents.
     var toneMarks: [Mark] {
         var result = Array(repeating: Mark.pending, count: toneCount)
-        for (index, note) in notes.enumerated() { result[note.toneIndex] = marks[index] }
+        var seen: Set<Int> = []
+        for (index, note) in notes.enumerated() {
+            // Dues notes alhora fan una sola marca: només és bona si ho són totes dues.
+            let mark = marks[index]
+            if seen.insert(note.toneIndex).inserted {
+                result[note.toneIndex] = mark
+            } else if mark != .hit, result[note.toneIndex] == .hit || mark == .wrong || (mark == .missed && result[note.toneIndex] == .pending) {
+                result[note.toneIndex] = mark
+            }
+        }
         return result
     }
 
@@ -314,7 +340,7 @@ struct RhythmJudge {
         }
         if let cutShort {
             let beats = Int(cutShort.beats)
-            return "La nota \(cutShort.note) dura \(beats) cops. Aguanta-la fins que hagin passat tots \(beats) i llavors toca la següent."
+            return "La nota \(cutShort.number) dura \(beats) cops. Aguanta-la fins que hagin passat tots \(beats) i llavors toca la següent."
         }
         if let firstWrong {
             return "Has tocat \(Music.names[Music.pitchClass(firstWrong.heard)]) on anava \(Music.names[firstWrong.wanted])."

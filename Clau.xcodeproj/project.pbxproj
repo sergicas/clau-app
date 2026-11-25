@@ -16,6 +16,7 @@
 		5B1B71A14E5C37F23368C163 /* LessonView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B05DE4C645372C26961D6A76 /* LessonView.swift */; };
 		5B203812D5054EDA7938471F /* CourseView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8099878181A4C1F93417B36F /* CourseView.swift */; };
 		6B0D5F7ACFA7F7BFCB0F3182 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 73CFBFEA1644E20A9CACF02D /* Assets.xcassets */; };
+		7707CBF1386AC025A9E59D9B /* MIDIInput.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9649103ED878C5FF774CEAE0 /* MIDIInput.swift */; };
 		95E3B0E47CAC3D99CE2D45AD /* App.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38B90A27A2AFDB8EEAB26360 /* App.swift */; };
 		B0DCC04841741CF9F3AC8388 /* Music.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99C74C056F434C57B2B98128 /* Music.swift */; };
 		C222A95B8D1922FC293C65AA /* Rhythm.swift in Sources */ = {isa = PBXBuildFile; fileRef = C731962505E90DDE971FAAE8 /* Rhythm.swift */; };
@@ -47,6 +48,7 @@
 		712A8681818AA6A941CB37C4 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		73CFBFEA1644E20A9CACF02D /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		8099878181A4C1F93417B36F /* CourseView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CourseView.swift; sourceTree = "<group>"; };
+		9649103ED878C5FF774CEAE0 /* MIDIInput.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MIDIInput.swift; sourceTree = "<group>"; };
 		99C74C056F434C57B2B98128 /* Music.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Music.swift; sourceTree = "<group>"; };
 		9F6C7F262ADCB0DD6578A829 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		AFD2099613D4D6CA39704295 /* StaffView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StaffView.swift; sourceTree = "<group>"; };
@@ -89,6 +91,7 @@
 				336BEDE5C29F2B11B5544B78 /* LessonProgress.swift */,
 				D5336565B91B8C82AF3FC71B /* LessonRunner.swift */,
 				B05DE4C645372C26961D6A76 /* LessonView.swift */,
+				9649103ED878C5FF774CEAE0 /* MIDIInput.swift */,
 				99C74C056F434C57B2B98128 /* Music.swift */,
 				0DDF180E1939A9309E0E2843 /* Pitch.swift */,
 				9F6C7F262ADCB0DD6578A829 /* PrivacyInfo.xcprivacy */,
@@ -211,6 +214,7 @@
 				35B2B76E5AE3579FB435EA68 /* LessonProgress.swift in Sources */,
 				49358D698794F8ABBB8F5CC1 /* LessonRunner.swift in Sources */,
 				5B1B71A14E5C37F23368C163 /* LessonView.swift in Sources */,
+				7707CBF1386AC025A9E59D9B /* MIDIInput.swift in Sources */,
 				B0DCC04841741CF9F3AC8388 /* Music.swift in Sources */,
 				3BAA7AE6C0D32A2502429D72 /* Pitch.swift in Sources */,
 				C222A95B8D1922FC293C65AA /* Rhythm.swift in Sources */,

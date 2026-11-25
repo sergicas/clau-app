@@ -27,20 +27,32 @@
 ## L33, la primera de l'etapa 5 (2026-11-24)
 - Etapa 5 «Les dues mans» oberta amb la L33 «Una nota llarga a sota» (`Course.notaDeSota`). Tres compassos: a cada un, l'esquerra toca una rodona (do, sol, do) sola al primer cop i l'aguanta; la dreta toca tres negres als cops 2, 3 i 4.
 - Nou `Tone.hold`: la nota sona i s'escriu així de llarga, però la següent comença al cap de `beats`. El jutge del ritme no canvia, perquè només mira quan comença cada nota. El pentagrama de les dues mans posa un silenci a l'altra mà mentre la nota de sota sona sola.
-- Alumne simulat: el principiant passa un 74 % els passos d'un compàs i un 27 % els de tres compassos, com a la resta del curs.
+- Alumne simulat (corregit el 2026-11-25: la xifra d'abans era la columna del «ritme propi», no la del principiant): el principiant passa un 84–90 % els passos d'un compàs i un 89–96 % els de tres; qui porta el seu propi tempo sense escoltar el pols, un 74 % i un 27 %.
 - No s'ha vist a l'iPhone ni amb un piano de debò. No se sap si el micròfon reconeix bé la melodia mentre la nota de sota encara sona.
 
 ## L34, canviar la nota de sota (2026-11-24)
 - L34 «Canviar la nota de sota» (`Course.canviarSota`). La nota de sota és una blanca (`hold: 2`): l'esquerra toca als cops 1 i 3 i la dreta, als cops 2 i 4. Tres compassos: do–sol i mi–re a sota, i per acabar el compàs del do llarg de la L33. Les mans continuen sense començar mai alhora.
-- Alumne simulat: el principiant passa un 74 % els passos d'un compàs, un 45 % els dos compassos i un 28 % els tres.
+- Alumne simulat (corregit el 2026-11-25, mateixa confusió de columnes): el principiant passa un 85–91 % els passos d'un compàs i un 91–98 % la resta; el «ritme propi», un 74 %, un 45 % i un 28 %.
 - Com la L33, no s'ha vist a l'iPhone ni amb un piano de debò.
+
+## L35, les dues mans alhora, i el piano per cable (2026-11-25)
+- **Decisió d'en Sergi:** les dues coses. Amb un piano digital connectat per cable l'app ho corregeix tot; sense cable, als passos amb dues notes alhora l'alumne s'escolta i diu ell si ha sortit bé.
+- `Tone.also`: una segona nota que comença alhora amb l'altra mà. El pentagrama la dibuixa al seu lloc, el teclat marca les dues tecles i l'exemple les fa sonar totes dues.
+- `RhythmJudge` accepta dues notes al mateix moment (proves noves a `proves/main.swift`, «Dues notes alhora»). L'alumne simulat també toca la segona mà, amb un desajust de 25 ms.
+- `Clau/MIDIInput.swift` (CoreMIDI, només escolta): detecta un piano endollat, descarta la sessió de xarxa i els busos interns, i passa cada tecla amb el seu instant. Quan hi ha cable, el micròfon no s'engega i el pols sona també mentre es toca. A la tria «Un piano» ho diu: «Piano connectat per cable».
+- Sense cable (`LessonRunner.selfChecked`): l'app compta, marca el pols i al final pregunta «Ha sonat com l'exemple?», amb «Sí, ha sortit bé», «Encara no» i «Escolta l'exemple».
+- A la pantalla (teclat dibuixat) les dues notes es comproven com amb el cable, perquè la pantalla sap totes les tecles.
+- L35 «Les dues mans alhora» (`Course.mansAlhora`): la mateixa nota amb les dues mans, de quatre dos fins a pujar i baixar de do a sol. Principiant simulat: 90–100 %; «ritme propi», 34–89 %.
+- **Provat al Mac** amb `proves/piano-virtual.swift` (un piano MIDI de mentida; es compila amb `swiftc -O -o build/piano-virtual proves/piano-virtual.swift`): Clau detecta el cable, rep les tecles (L1 acabada amb tres dos), jutja les dues mans a temps (L35 pas 4, «BÉ» al registre) i torna al mode d'escoltar-se quan es desendolla. El mode sense cable també s'ha recorregut al Mac.
+- **No provat:** amb un piano digital de debò i un cable de debò, ni a l'iPhone (només s'hi ha instal·lat). Tampoc dos dits alhora a la pantalla del telèfon. El cable és USB; per Bluetooth no s'ha fet res.
+- El projecte es regenera amb `xcodegen generate` quan s'afegeix un fitxer a Clau/.
 
 ## Decisions d'en Sergi
 - En els ritmes curts no es perdona una blanca escurçada. Per això el principiant simulat es queda a uns 30 % als passos difícils, i en Sergi ho vol així.
 - Mai simuladors d'iOS: les proves es fan a l'iPhone per cable.
 - El provador no toca Clau/, ClauUITests/ ni el projecte, i no fa commits.
 - Des del 2026-11-25 es pot pujar tot a internet (abans no es pujava res). El codi és a https://github.com/sergicas/clau-app, repositori públic des del 2026-11-25. Aquell dia es va demanar una auditoria a ChatGPT (xat «Fes una auditoria de l'app Clau…»); falta llegir-ne el resultat. Enviar res a Apple continua demanant el seu sí.
-- A l'etapa 5, de moment, les dues mans mai comencen alhora (2026-11-24). Què fer quan hagin de començar juntes (L35) està per decidir.
+- A les L33 i L34 les dues mans mai comencen alhora (2026-11-24). Des de la L35 sí: amb cable ho comprova l'app i sense cable l'alumne s'escolta (2026-11-25).
 
 ## Pendent
 1. ~~Veure la L32 a l'iPhone.~~ **Fet el 2026-11-24:** testLlegir i testEsquerra han passat (el telèfon anava per xarxa local, no per cable). Les captures e08, e09, g12 i g13 són correctes. Abans, dues proves d'interfície havien fallat amb «Timed out while enabling automation mode». Abans de provar-ho, cal:
@@ -61,7 +73,8 @@
 2. Coses obertes que en Sergi no ha demanat:
    - Ningú ha provat l'app amb un piano de debò.
    - ~~La L24, pas 6, és al 22 %.~~ 2026-11-24: nou pas 6 «on es torna a començar» (el final i el principi, 62 %) abans de les dues vegades (ara pas 7, 22–30 %). L'últim no pot pujar sense perdonar blanques: té sis notes llargues.
-   - La L35 (les dues mans alhora): cal triar com es comprova amb piano de debò, perquè el micròfon no sent dues notes que comencen alhora.
+   - ~~La L35: cal triar com es comprova.~~ Triat i fet el 2026-11-25 (cable i escoltar-se). Falta provar-ho amb un piano digital de debò.
+   - L'auditoria demanada a ChatGPT el 2026-11-25: falta llegir-ne el resultat.
    - ~~Els punts de pols de les notes llargues queden amuntegats.~~ 2026-11-24: es reparteixen des del cap de la nota fins al de la següent (`StaffView.drawPips`).
 
 ## Eines útils

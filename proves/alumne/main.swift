@@ -43,6 +43,8 @@ let profiles = [
 ]
 let speeds: [(String, Double)] = [("molt lent", 0.6), ("lent", 0.8), ("normal", 1)]
 let attempts = 400
+/// Quant es desajusten les dues mans quan han de baixar alhora (desviació, en segons).
+let handGap = 0.025
 
 func attempt(_ tones: [Tone], beat: Double, profile: Profile, rng: inout Seeded) -> Bool {
     var judge = RhythmJudge(tones: tones, beat: beat)
@@ -55,7 +57,10 @@ func attempt(_ tones: [Tone], beat: Double, profile: Profile, rng: inout Seeded)
         for tone in tones {
             if !tone.rest {
                 let wrong = Double.random(in: 0..<1, using: &rng) < profile.wrongChance
-                presses.append((at + profile.jitter * rng.normal(), wrong ? tone.midi + 2 : tone.midi))
+                let moment = at + profile.jitter * rng.normal()
+                presses.append((moment, wrong ? tone.midi + 2 : tone.midi))
+                // L'altra mà baixa gairebé alhora, però no exactament.
+                if let also = tone.also { presses.append((moment + handGap * rng.normal(), also)) }
             }
             var length = tone.beats * beat * ratio
             if tone.beats >= 2, Double.random(in: 0..<1, using: &rng) < profile.shortenChance { length *= 1 - profile.shortenBy }
@@ -71,6 +76,7 @@ func attempt(_ tones: [Tone], beat: Double, profile: Profile, rng: inout Seeded)
             if !tone.rest {
                 let wrong = Double.random(in: 0..<1, using: &rng) < profile.wrongChance
                 presses.append((time + error, wrong ? tone.midi + 2 : tone.midi))
+                if let also = tone.also { presses.append((time + error + handGap * rng.normal(), also)) }
             }
             // Si no aguanta prou una nota llarga, la següent arriba abans d'hora.
             if tone.beats >= 2, !tone.rest, Double.random(in: 0..<1, using: &rng) < profile.shortenChance { cut = tone.beats * beat * profile.shortenBy }

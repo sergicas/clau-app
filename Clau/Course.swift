@@ -21,6 +21,9 @@ struct Tone: Equatable {
     /// Una nota de sota que s'aguanta: sona i s'escriu així de llarga, però la següent comença al cap de `beats`,
     /// mentre aquesta encara sona. Mai comencen dues notes alhora: el micròfon només en sent una.
     var hold: Double?
+    /// Una segona nota que comença alhora, amb l'altra mà. El micròfon no les sent totes dues: només es comproven
+    /// amb el teclat de la pantalla o amb un piano connectat per cable; si no, l'alumne s'escolta.
+    var also: Int?
 
     /// El que dura escrita i el que sona.
     var written: Double { hold ?? beats }
@@ -1016,7 +1019,7 @@ enum Course {
         id: 5,
         title: "Les dues mans",
         summary: "Baix i melodia, mans juntes",
-        lessons: [notaDeSota, canviarSota]
+        lessons: [notaDeSota, canviarSota, mansAlhora]
     )
 
     /// Una nota de l'esquerra que dura un compàs sencer i sona sola el primer cop; la dreta toca als cops 2, 3 i 4.
@@ -1091,6 +1094,45 @@ enum Course {
                     keyboard: handsKeyboard(Score(tones: canvi, counts: true, bars: true, grand: true)), pulse: true),
             handsRhythm("Toca els tres compassos. L'esquerra canvia quatre vegades i a l'últim compàs s'hi queda.", canvi),
             handsRhythm("Ara sense els punts: només amb el que veus escrit.", canvi, rounds: 1, counts: false),
+        ]
+    )
+
+    // 35
+    /// La mateixa nota amb les dues mans alhora: la dreta al seu lloc i l'esquerra una octava més avall.
+    private static func both(_ midi: Int, _ beats: Double = 1) -> Tone {
+        Tone(midi: midi, beats: beats, also: midi - 12)
+    }
+
+    private static let juntsDo = [both(C), both(C), both(C), both(C)]
+    private static let juntsTres = [both(C), both(D), both(E, 2)]
+    private static let juntsPuja = [both(C), both(D), both(E), both(F), both(G, 4)]
+    private static let juntsTot = [both(C), both(D), both(E), both(F), both(G), both(F), both(E), both(D), both(C, 4)]
+
+    static let mansAlhora = Lesson(
+        id: "5-alhora", number: 35,
+        title: "Les dues mans alhora",
+        summary: "La mateixa nota, al mateix moment",
+        minutes: 8,
+        steps: [
+            .look(text: "Fins ara les mans no començaven mai al mateix moment. Ara sí: les dues toquen la mateixa nota alhora, cada una a la seva altura. S'escriuen una sobre l'altra.",
+                  picture: .staff(Score(tones: [both(C, 4)], names: true, bars: true, grand: true))),
+            .look(text: "Les mans, com sempre: la dreta amb el polze sobre el do del mig i l'esquerra amb el petit sobre el do greu.",
+                  picture: .keyboard(bothHands)),
+            .listen(text: "Escolta quatre dos. A cada cop sonen el do greu i el do del mig junts, com una sola nota més plena.", tones: juntsDo, bpm: 60,
+                    keyboard: handsKeyboard(Score(tones: juntsDo, counts: true, bars: true, grand: true)), pulse: true),
+            handsRhythm("Toca el do amb les dues mans alhora: el polze de la dreta i el petit de l'esquerra. Quatre vegades, una a cada cop.", juntsDo),
+            .look(text: "Quan les dues mans pugen juntes, els dits no són els mateixos. La dreta fa do, re i mi amb els dits 1, 2 i 3; l'esquerra, amb el 5, el 4 i el 3.",
+                  picture: .keyboard(bothHands)),
+            .listen(text: "Do, re i mi amb les dues mans. El mi dura dos cops.", tones: juntsTres, bpm: 60,
+                    keyboard: handsKeyboard(Score(tones: juntsTres, counts: true, bars: true, grand: true)), pulse: true),
+            handsRhythm("Toca do, re i mi amb les dues mans. Mira que els dos dits baixin al mateix moment.", juntsTres),
+            .listen(text: "Ara les cinc notes pujant. El sol dura tot un compàs.", tones: juntsPuja, bpm: 60,
+                    keyboard: handsKeyboard(Score(tones: juntsPuja, counts: true, bars: true, grand: true)), pulse: true),
+            handsRhythm("Toca de do a sol amb les dues mans. A dalt de tot, aguanta el sol quatre cops.", juntsPuja),
+            .listen(text: "Pujar i tornar a baixar: tres compassos seguits.", tones: juntsTot, bpm: 60,
+                    keyboard: handsKeyboard(Score(tones: juntsTot, counts: true, bars: true, grand: true)), pulse: true),
+            handsRhythm("Toca els tres compassos: puja fins al sol i torna al do, sempre amb les dues mans.", juntsTot),
+            handsRhythm("Ara sense els punts: només amb el que veus escrit.", juntsTot, rounds: 1, counts: false),
         ]
     )
 }

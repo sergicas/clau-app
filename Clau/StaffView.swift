@@ -60,6 +60,11 @@ struct StaffView: View {
         return tone.midi >= 60 ? staves[0] : staves[1]
     }
 
+    /// La nota que l'altra mà toca alhora, si n'hi ha: dura el mateix.
+    private func twin(of tone: Tone) -> Tone? {
+        tone.also.map { Tone(midi: $0, beats: tone.beats, hold: tone.hold) }
+    }
+
     /// Amb compassos o amb punts de cop, cada nota ocupa el que dura; si no, totes igual.
     private func size(of tone: Tone) -> Double { score.bars || score.counts ? tone.beats : 1 }
 
@@ -233,6 +238,16 @@ struct StaffView: View {
                     context.fill(Path(ellipseIn: halo), with: .color(Theme.brass.opacity(0.22)))
                 }
                 drawNote(note.tone, in: &context, x: x, color: tint, staff: home)
+                // La nota de l'altra mà, que comença alhora: al mateix lloc, al seu pentagrama.
+                if let twin = twin(of: note.tone) {
+                    let other = staff(for: twin)
+                    if note.index == current {
+                        let center = y(ofStep: step(of: twin.midi, bass: other.bass), in: other)
+                        let halo = CGRect(x: x - 1.5 * s, y: center - 1.5 * s, width: 3 * s, height: 3 * s)
+                        context.fill(Path(ellipseIn: halo), with: .color(Theme.brass.opacity(0.22)))
+                    }
+                    drawNote(twin, in: &context, x: x, color: tint, staff: other)
+                }
                 // Mentre la nota de sota sona sola, l'altra mà calla: el seu pentagrama porta un silenci.
                 if score.grand, note.tone.hold != nil, let other = staves.first(where: { $0.bass != home.bass }) {
                     drawRest(note.tone.beats, in: &context, x: x, color: Theme.ink, staff: other)
@@ -254,7 +269,9 @@ struct StaffView: View {
             var bar = 0.0
             while bar < system.total - 0.001 {
                 let inBar = system.notes.filter { $0.start >= bar - 0.001 && $0.start < bar + 4 - 0.001 && !$0.tone.rest }
-                for staff in staves where !inBar.contains(where: { self.staff(for: $0.tone).bass == staff.bass }) {
+                for staff in staves where !inBar.contains(where: { note in
+                    self.staff(for: note.tone).bass == staff.bass || twin(of: note.tone).map { self.staff(for: $0).bass == staff.bass } ?? false
+                }) {
                     drawRest(4, in: &context, x: (xAt(bar) + xAt(min(bar + 4, total)) - barPad) / 2, color: Theme.ink, staff: staff)
                 }
                 bar += 4

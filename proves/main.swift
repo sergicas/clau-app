@@ -110,6 +110,7 @@ func perform(_ tones: [Tone], beat: Double, offset: Double = 0, skip: Set<Int> =
     for (index, tone) in tones.enumerated() {
         if !tone.rest, !skip.contains(index) {
             presses.append((time + offset, wrongAt.contains(index) ? tone.midi + 2 : tone.midi))
+            if let also = tone.also { presses.append((time + offset, also)) }
         }
         time += tone.beats * beat
     }
@@ -303,6 +304,32 @@ for (index, tone) in refet.enumerated() {
 }
 refetJudge.close(upTo: .infinity)
 verify("Blanca escurçada al principi, refet, i perdut més tard: diu «per davant»", refetJudge.verdict.contains("una nota per davant"))
+
+// Dues mans alhora: dues notes al mateix moment.
+print("Dues notes alhora")
+let junts = [Tone(midi: 60, also: 48), Tone(midi: 62, also: 50), Tone(midi: 64, beats: 2, also: 52)]
+var totesDues = RhythmJudge(tones: junts, beat: 1)
+for (midi, at) in [(48, 0.02), (60, -0.03), (62, 1.0), (50, 1.04), (52, 2.0), (64, 2.01)] { totesDues.heard(midi: midi, at: at) }
+totesDues.close(upTo: .infinity)
+verify("Les dues mans a cada cop: passa", totesDues.passed)
+verify("Les dues mans: totes les marques bones", totesDues.toneMarks == [.hit, .hit, .hit])
+verify("Dues notes alhora no estrenyen el marge", RhythmJudge(tones: junts, beat: 1).tolerance >= 0.29)
+var unaMa = RhythmJudge(tones: junts, beat: 1)
+for (midi, at) in [(60, 0.0), (62, 1.0), (64, 2.0)] { unaMa.heard(midi: midi, at: at) }
+unaMa.close(upTo: .infinity)
+verify("Només una mà: no passa", !unaMa.passed)
+verify("Només una mà: les marques diuen que falta l'altra", unaMa.toneMarks == [.missed, .missed, .missed])
+let mirall = [Tone(midi: 60, also: 55), Tone(midi: 62, also: 53)]
+var creuat = RhythmJudge(tones: mirall, beat: 1)
+for (midi, at) in [(55, 0.0), (60, 0.02), (53, 1.0), (62, 1.01)] { creuat.heard(midi: midi, at: at) }
+creuat.close(upTo: .infinity)
+verify("Notes diferents alhora, primer l'esquerra: passa", creuat.passed)
+let junts4 = [Tone(midi: 60, also: 48), Tone(midi: 62, also: 50), Tone(midi: 64, also: 52), Tone(midi: 65, also: 53), Tone(midi: 67, beats: 4, also: 55), Tone(midi: 65, also: 53)]
+var tallat = RhythmJudge(tones: junts4, beat: 1)
+for (midi, at) in [(60, 0.0), (48, 0.0), (62, 1.0), (50, 1.0), (64, 2.0), (52, 2.0), (65, 3.0), (53, 3.0), (67, 4.0), (55, 4.0), (65, 6.0), (53, 6.0)] { tallat.heard(midi: midi, at: at) }
+tallat.close(upTo: .infinity)
+verify("Sol llarg escurçat amb les dues mans: diu la nota 5", tallat.verdict.contains("La nota 5 dura 4 cops"))
+print(tallat.verdict)
 
 print("Curs")
 for lesson in Course.allLessons {

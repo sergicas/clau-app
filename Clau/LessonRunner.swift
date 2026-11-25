@@ -1,3 +1,4 @@
+import Combine
 import Foundation
 import QuartzCore
 import os
@@ -18,6 +19,8 @@ final class LessonRunner: ObservableObject {
     @Published private(set) var sounding: Int?
     /// Posició, dins l'exemple, de la nota que sona: per seguir-la a la partitura.
     @Published private(set) var soundingIndex: Int?
+    /// La nota de l'altra mà, quan en sonen dues alhora.
+    @Published private(set) var soundingAlso: Int?
     @Published private(set) var isPlaying = false
     @Published private(set) var hasListened = false
 
@@ -39,8 +42,25 @@ final class LessonRunner: ObservableObject {
     @Published private(set) var rhythmTarget: Int?
     /// Quants cops del ritme o de l'exemple que sona han passat (0 al primer). Serveix per ensenyar per on va el pols.
     @Published private(set) var rhythmBeat: Int?
+    /// La tecla de l'altra mà, quan toca tocar-ne dues alhora.
+    @Published private(set) var rhythmTargetAlso: Int?
     /// Posició de la nota que toca ara en un ritme.
     @Published private(set) var rhythmIndex: Int?
+
+    /// Hi ha un piano connectat per cable: diu totes les tecles que es toquen, i el micròfon no cal.
+    @Published private(set) var cable = false
+    /// L'alumne ha acabat de tocar un pas que l'app no pot comprovar i ha de dir com ha anat.
+    @Published private(set) var awaitingVerdict = false
+
+    /// Les notes arriben pel micròfon, que només en sent una cada vegada.
+    var usesMicrophone: Bool { instrument == .real && !cable }
+
+    /// Un pas amb dues notes que comencen alhora, tocat amb un piano que només se sent pel micròfon:
+    /// l'app no el pot corregir. Marca el pols, l'alumne toca, s'escolta i diu ell si ha sortit bé.
+    var selfChecked: Bool {
+        guard usesMicrophone, case .rhythm(_, let tones, _, _, _) = step else { return false }
+        return tones.contains { $0.also != nil }
+    }
 
     /// A quina velocitat van el pols i els exemples. Es recorda d'una lliçó a l'altra.
     enum Speed: Double, CaseIterable, Identifiable {
@@ -78,6 +98,8 @@ final class LessonRunner: ObservableObject {
     private var playback: Task<Void, Never>?
     private var advancing: Task<Void, Never>?
     private weak var audio: AudioEngine?
+    private weak var midi: MIDIInput?
+    private var cableWatch: AnyCancellable?
 
     init(lesson: Lesson, instrument: Instrument) {
         self.lesson = lesson
@@ -87,11 +109,37 @@ final class LessonRunner: ObservableObject {
 
     var step: Step { steps[min(stepIndex, steps.count - 1)] }
 
-    func begin(audio: AudioEngine) {
+    func begin(audio: AudioEngine, midi: MIDIInput) {
         self.audio = audio
-        if !ClauApp.isTest { audio.start(microphone: instrument == .real) }
-        audio.onNote = instrument == .real ? { [weak self] midi in self?.heard(midi) } : nil
+        self.midi = midi
+        if !ClauApp.isTest { midi.start() }
+        cable = midi.connected
+        midi.onNote = { [weak self] note, time in self?.cableNote(note, at: time) }
+        cableWatch = midi.$connected.receive(on: DispatchQueue.main).sink { [weak self] on in self?.cableChanged(on) }
+        if !ClauApp.isTest { audio.start(microphone: usesMicrophone) }
+        audio.onNote = { [weak self] midi in
+            guard let self, self.usesMicrophone else { return }
+            self.heard(midi)
+        }
         enterStep()
+    }
+
+    /// S'ha endollat o desendollat el piano a mitja lliçó: es canvia de manera d'escoltar.
+    private func cableChanged(_ on: Bool) {
+        guard on != cable else { return }
+        cable = on
+        if !ClauApp.isTest { audio?.start(microphone: usesMicrophone) }
+        if on {
+            audio?.setListening(false)
+        } else if usesMicrophone, case .play = step, !stepComplete {
+            audio?.setListening(true)
+        }
+    }
+
+    /// Una tecla del piano connectat per cable. El piano ja sona sol: l'app només en pren nota.
+    private func cableNote(_ note: Int, at time: TimeInterval) {
+        guard !isPlaying else { return }
+        heard(note, at: time)
     }
 
     func end() {
@@ -102,6 +150,8 @@ final class LessonRunner: ObservableObject {
         audio?.stopPlaying()
         audio?.setListening(false)
         audio?.onNote = nil
+        midi?.onNote = nil
+        cableWatch = nil
     }
 
     // MARK: Avançar
@@ -114,6 +164,7 @@ final class LessonRunner: ObservableObject {
         audio?.stopPlaying()
         audio?.setListening(false)
         sounding = nil
+        soundingAlso = nil
         soundingIndex = nil
         rhythmBeat = nil
         isPlaying = false
@@ -138,8 +189,10 @@ final class LessonRunner: ObservableObject {
         count = nil
         judge = nil
         rhythmTarget = nil
+        rhythmTargetAlso = nil
         rhythmIndex = nil
         rhythmBeat = nil
+        awaitingVerdict = false
         marks = []
 
         switch step {
@@ -148,7 +201,7 @@ final class LessonRunner: ObservableObject {
         case .listen:
             playExample(after: 0.6)
         case .play:
-            if instrument == .real { audio?.setListening(true) }
+            if usesMicrophone { audio?.setListening(true) }
         case .rhythm(_, let tones, _, _, _):
             marks = Array(repeating: .pending, count: tones.count)
         }
@@ -172,8 +225,18 @@ final class LessonRunner: ObservableObject {
 
     // MARK: Escoltar
 
+    /// L'exemple del pas. En un pas de tocar a temps també es pot tornar a sentir, mentre no s'hi estigui tocant.
+    private var example: (tones: [Tone], bpm: Double, pulse: Bool)? {
+        switch step {
+        case .listen(_, let tones, let bpm, _, let pulse): return (tones, bpm, pulse)
+        case .rhythm(_, let tones, let bpm, _, _): return rhythmPhase == .idle && !stepComplete ? (tones, bpm, true) : nil
+        default: return nil
+        }
+    }
+
     func playExample(after delay: Double = 0) {
-        guard case .listen(_, let tones, let bpm, _, let pulse) = step else { return }
+        guard let (tones, bpm, pulse) = example else { return }
+        advancing?.cancel()
         playback?.cancel()
         audio?.stopPlaying()
         isPlaying = true
@@ -210,13 +273,18 @@ final class LessonRunner: ObservableObject {
                 if let piece = event.piece { self.rhythmBeat = piece }
                 if let tone = event.tone {
                     self.sounding = tone.rest ? nil : tone.midi
+                    self.soundingAlso = tone.rest ? nil : tone.also
                     self.soundingIndex = event.index
-                    if !tone.rest { self.audio?.play(midi: tone.midi, seconds: tone.written * beat * 0.92) }
+                    if !tone.rest {
+                        self.audio?.play(midi: tone.midi, seconds: tone.written * beat * 0.92)
+                        if let also = tone.also { self.audio?.play(midi: also, seconds: tone.written * beat * 0.92) }
+                    }
                 }
             }
             await LessonRunner.sleep(until: end)
             guard !Task.isCancelled, let self else { return }
             self.sounding = nil
+            self.soundingAlso = nil
             self.soundingIndex = nil
             self.count = nil
             self.rhythmBeat = nil
@@ -235,14 +303,19 @@ final class LessonRunner: ObservableObject {
 
     /// Compta quatre cops i després escolta el ritme sencer.
     func startRhythm() {
-        guard case .rhythm(_, let tones, let bpm, _, _) = step, !stepComplete, rhythmPhase == .idle else { return }
+        guard case .rhythm(_, let tones, let bpm, _, _) = step, !stepComplete, rhythmPhase == .idle, !isPlaying else { return }
         rhythmTask?.cancel()
         advancing?.cancel()
         let beat = beatLength(bpm)
-        let judge = RhythmJudge(tones: tones, beat: beat, slack: instrument == .real ? 0.06 : 0)
-        self.judge = judge
-        marks = judge.toneMarks
+        let microphone = usesMicrophone
+        // Dues notes alhora pel micròfon: no es jutja res. Només es marca el pols i després l'alumne diu com ha anat.
+        let own = selfChecked
+        let judge = RhythmJudge(tones: tones, beat: beat, slack: microphone ? 0.06 : 0)
+        self.judge = own ? nil : judge
+        marks = own ? Array(repeating: .pending, count: tones.count) : judge.toneMarks
+        awaitingVerdict = false
         rhythmTarget = nil
+        rhythmTargetAlso = nil
         say("", .neutral)
         rhythmBeat = nil
         rhythmPhase = .countIn
@@ -258,10 +331,10 @@ final class LessonRunner: ObservableObject {
                 guard !Task.isCancelled, let self else { return }
                 let counting = tick < 4
                 // Amb un piano de debò el pols calla mentre toques, perquè el micròfon no el confongui amb una nota.
-                if counting || self.instrument == .screen { self.audio?.click(accent: tick % 4 == 0) }
+                if counting || !microphone || own { self.audio?.click(accent: tick % 4 == 0) }
                 self.count = tick % 4 + 1
                 if tick == 3 {
-                    if self.instrument == .real { self.audio?.setListening(true) }
+                    if microphone, !own { self.audio?.setListening(true) }
                     self.showRhythmTarget()
                 }
                 if !counting {
@@ -271,9 +344,40 @@ final class LessonRunner: ObservableObject {
                     self.refreshRhythm()
                 }
             }
-            await LessonRunner.sleep(until: start + judge.length + judge.tolerance)
+            await LessonRunner.sleep(until: start + judge.length + (own ? 0 : judge.tolerance))
             guard !Task.isCancelled, let self else { return }
-            self.finishRhythm()
+            if own { self.askVerdict() } else { self.finishRhythm() }
+        }
+    }
+
+    /// S'ha acabat el pols d'un pas que l'app no pot comprovar: ara li toca dir-ho a l'alumne.
+    private func askVerdict() {
+        rhythmPhase = .idle
+        rhythmBeat = nil
+        count = nil
+        awaitingVerdict = true
+        say("", .neutral)
+    }
+
+    /// L'alumne diu si el que ha tocat ha sonat com l'exemple.
+    func selfVerdict(_ good: Bool) {
+        guard awaitingVerdict, case .rhythm(_, _, _, let rounds, _) = step else { return }
+        awaitingVerdict = false
+        guard good else {
+            say("Cap problema. Si vols, escolta l'exemple i torna-hi.", .wrong)
+            return
+        }
+        LessonRunner.log("lliçó \(lesson.number), pas \(stepIndex + 1), piano, l'alumne s'escolta: diu que ha sortit bé")
+        round += 1
+        if round >= rounds {
+            completeStep()
+            return
+        }
+        say(rounds - round == 1 ? "Bé. Una vegada més." : "Bé. Torna-hi.", .good)
+        advancing = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(1.6))
+            guard !Task.isCancelled else { return }
+            self?.startRhythm()
         }
     }
 
@@ -300,7 +404,7 @@ final class LessonRunner: ObservableObject {
         if case .rhythm(_, _, let bpm, _, _) = step { beatLength = self.beatLength(bpm) } else { return }
         // El dit es compara amb el pols tal com se sent, que surt una mica més tard del que s'ha demanat.
         var time = (moment ?? CACurrentMediaTime()) - patternStart - (audio?.outputDelay ?? 0)
-        if instrument == .real { time -= microphoneDelay }
+        if usesMicrophone, moment == nil { time -= microphoneDelay }
         // Mentre es compta no es jutja res, tret de qui entra massa aviat: l'últim cop d'entrada ja compta.
         guard time > -1.5 * beatLength else { return }
         judge.heard(midi: midi, at: time)
@@ -317,10 +421,12 @@ final class LessonRunner: ObservableObject {
     private func showRhythmTarget() {
         guard case .rhythm(_, let tones, _, _, _) = step, let index = judge?.nextToneIndex else {
             rhythmTarget = nil
+            rhythmTargetAlso = nil
             rhythmIndex = nil
             return
         }
         rhythmTarget = tones[index].midi
+        rhythmTargetAlso = tones[index].also
         rhythmIndex = index
     }
 
@@ -330,13 +436,14 @@ final class LessonRunner: ObservableObject {
         self.judge = judge
         marks = judge.toneMarks
         rhythmTarget = nil
+        rhythmTargetAlso = nil
         rhythmIndex = nil
         rhythmBeat = nil
         rhythmPhase = .idle
         count = nil
         audio?.setListening(false)
 
-        LessonRunner.log("lliçó \(lesson.number), pas \(stepIndex + 1), \(instrument == .screen ? "pantalla" : "piano"), velocitat \(speed.label), sortida de so \(String(format: "%.3f", audio?.outputDelay ?? 0)) s\n  \(judge.report)")
+        LessonRunner.log("lliçó \(lesson.number), pas \(stepIndex + 1), \(instrument == .screen ? "pantalla" : (cable ? "piano per cable" : "piano")), velocitat \(speed.label), sortida de so \(String(format: "%.3f", audio?.outputDelay ?? 0)) s\n  \(judge.report)")
 
         guard judge.passed else {
             say(judge.verdict, .wrong)

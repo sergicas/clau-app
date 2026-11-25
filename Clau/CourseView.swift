@@ -3,6 +3,7 @@ import SwiftUI
 struct CourseView: View {
     @EnvironmentObject private var progress: LessonProgress
     @State private var open: Lesson?
+    @EnvironmentObject private var midi: MIDIInput
     @AppStorage(Instrument.storageKey) private var instrumentName = Instrument.screen.rawValue
 
     private var instrument: Instrument { Instrument(rawValue: instrumentName) ?? .screen }
@@ -54,7 +55,9 @@ struct CourseView: View {
             }
             Text(instrument == .screen
                  ? "Toques al teclat dibuixat. Amb el telèfon de costat, les tecles són gairebé tan amples com les d'un piano."
-                 : "Posa el telèfon al faristol, amb el volum alt. Clau t'escolta amb el micròfon mentre toques.")
+                 : (midi.connected
+                    ? "Piano connectat per cable. Clau sap exactament quines tecles toques, també quan en toques dues alhora."
+                    : "Posa el telèfon al faristol, amb el volum alt. Clau t'escolta amb el micròfon mentre toques. Si tens un piano digital, el pots connectar amb un cable."))
                 .font(.body)
                 .lineSpacing(3)
                 .foregroundStyle(Theme.ink)

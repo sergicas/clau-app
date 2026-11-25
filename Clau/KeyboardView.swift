@@ -9,6 +9,9 @@ struct KeyboardView: View {
     var target: Int?
     /// Tecla que sona a l'exemple.
     var sounding: Int?
+    /// La tecla de l'altra mà, quan cal tocar-ne (o en sonen) dues alhora.
+    var alsoTarget: Int?
+    var alsoSounding: Int?
     /// Si hi és, cada tecla respon al dit. Rep la tecla i el moment exacte en què el dit l'ha tocada.
     var onPress: ((Int, TimeInterval) -> Void)?
     /// El dit ha deixat anar la tecla.
@@ -147,8 +150,8 @@ struct KeyboardView: View {
     }
 
     private func fill(_ midi: Int) -> Color? {
-        if pressed.contains(midi) || midi == sounding { return Theme.sage }
-        if midi == target { return Theme.brass }
+        if pressed.contains(midi) || midi == sounding || midi == alsoSounding { return Theme.sage }
+        if midi == target || midi == alsoTarget { return Theme.brass }
         if keyboard.marked.contains(midi) { return Theme.brass.opacity(0.45) }
         return nil
     }
@@ -178,6 +181,7 @@ struct KeyboardView: View {
     }
 
     private var accessibilityText: String {
+        if let target, let alsoTarget { return "Teclat. Tecles marcades: \(Music.name(alsoTarget)) greu i \(Music.name(target))." }
         if let target { return "Teclat. Tecla marcada: \(Music.name(target))." }
         if !keyboard.marked.isEmpty {
             return "Teclat. Tecles marcades: " + keyboard.marked.map(Music.name).joined(separator: ", ") + "."

@@ -7,6 +7,7 @@ struct LessonView: View {
     let onNext: (Lesson) -> Void
 
     @EnvironmentObject private var audio: AudioEngine
+    @EnvironmentObject private var midi: MIDIInput
     @EnvironmentObject private var progress: LessonProgress
     @Environment(\.verticalSizeClass) private var verticalSizeClass
     @StateObject private var runner: LessonRunner
@@ -46,7 +47,7 @@ struct LessonView: View {
         }
         .onAppear {
             UIApplication.shared.isIdleTimerDisabled = true
-            runner.begin(audio: audio)
+            runner.begin(audio: audio, midi: midi)
         }
         .onDisappear {
             UIApplication.shared.isIdleTimerDisabled = false
@@ -225,6 +226,8 @@ struct LessonView: View {
             keyboard: stepKeyboard,
             target: stepTarget,
             sounding: runner.sounding,
+            alsoTarget: stepTargetAlso,
+            alsoSounding: runner.soundingAlso,
             onPress: { runner.keyPressed($0, at: $1) },
             onRelease: { runner.keyReleased($0) },
             fills: true,
@@ -267,6 +270,13 @@ struct LessonView: View {
         if case .rhythm = runner.step { return runner.rhythmTarget }
         guard case .play(_, let goals, _, _, _) = runner.step, !runner.stepComplete else { return nil }
         return goals[min(runner.goalIndex, goals.count - 1)].key
+    }
+
+    /// La tecla de l'altra mà, quan cal tocar-ne dues alhora.
+    private var stepTargetAlso: Int? {
+        if let score = stepScore, !score.names { return nil }
+        if case .rhythm = runner.step { return runner.rhythmTargetAlso }
+        return nil
     }
 
     @ViewBuilder
@@ -544,7 +554,7 @@ struct LessonView: View {
             // La partitura ja surt amb el text. Apaïsat, al costat hi va el teclat.
             if compact { KeyboardView(keyboard: .oneOctave) }
         default:
-            KeyboardView(keyboard: stepKeyboard, target: stepTarget, sounding: runner.sounding)
+            KeyboardView(keyboard: stepKeyboard, target: stepTarget, sounding: runner.sounding, alsoTarget: stepTargetAlso, alsoSounding: runner.soundingAlso)
         }
     }
 
@@ -621,7 +631,7 @@ struct LessonView: View {
 
     @ViewBuilder
     private var listeningRow: some View {
-        if audio.micState == .denied {
+        if runner.usesMicrophone, audio.micState == .denied {
             VStack(alignment: .leading, spacing: 12) {
                 Text("Clau no té permís per fer servir el micròfon i no et pot sentir. L'hi pots donar a Configuració, o continuar sense que t'escolti.")
                     .font(.body)
@@ -637,7 +647,7 @@ struct LessonView: View {
             .background(Theme.card, in: RoundedRectangle(cornerRadius: 16))
         } else {
             HStack(spacing: 14) {
-                Image(systemName: runner.stepComplete ? "checkmark.circle.fill" : "mic.fill")
+                Image(systemName: runner.stepComplete ? "checkmark.circle.fill" : (runner.cable ? "cable.connector" : (runner.selfChecked ? "ear" : "mic.fill")))
                     .font(.title2)
                     .foregroundStyle(runner.stepComplete ? Theme.sage : Theme.ink)
                 VStack(alignment: .leading, spacing: 7) {
@@ -645,16 +655,19 @@ struct LessonView: View {
                         .font(.body.weight(.medium))
                         .foregroundStyle(runner.mood == .wrong ? Theme.terra : Theme.ink)
                         .fixedSize(horizontal: false, vertical: true)
-                    GeometryReader { geometry in
-                        ZStack(alignment: .leading) {
-                            Capsule().fill(Theme.line)
-                            Capsule().fill(Theme.sage)
-                                .frame(width: geometry.size.width * CGFloat(audio.level))
+                    // El mesurador del micròfon només hi és quan el micròfon escolta.
+                    if runner.usesMicrophone, !runner.selfChecked {
+                        GeometryReader { geometry in
+                            ZStack(alignment: .leading) {
+                                Capsule().fill(Theme.line)
+                                Capsule().fill(Theme.sage)
+                                    .frame(width: geometry.size.width * CGFloat(audio.level))
+                            }
                         }
+                        .frame(height: 6)
+                        .animation(.linear(duration: 0.08), value: audio.level)
+                        .accessibilityHidden(true)
                     }
-                    .frame(height: 6)
-                    .animation(.linear(duration: 0.08), value: audio.level)
-                    .accessibilityHidden(true)
                 }
             }
             .padding(16)
@@ -664,14 +677,23 @@ struct LessonView: View {
 
     private var listeningText: String {
         if !runner.message.isEmpty { return runner.message }
-        if case .rhythm = runner.step {
+        if runner.selfChecked {
+            if runner.awaitingVerdict { return "Ha sonat com l'exemple, amb les dues mans alhora i a temps?" }
             switch runner.rhythmPhase {
-            case .idle: return "Prem «Comença» quan estiguis a punt."
+            case .idle: return "Amb dues notes alhora el micròfon no et pot corregir. Toca amb el pols, escolta't i digues-me tu com ha anat."
             case .countIn: return "Encara no. Escolta els quatre cops."
-            case .playing: return "T'escolto."
+            case .playing: return "Toca i escolta't."
             }
         }
-        return runner.goalIndex == 0 && runner.round == 0 ? "T'escolto. Quan vulguis." : "T'escolto."
+        let hearing = runner.cable ? "Piano connectat per cable." : "T'escolto."
+        if case .rhythm = runner.step {
+            switch runner.rhythmPhase {
+            case .idle: return runner.cable ? "Piano connectat per cable. Prem «Comença» quan estiguis a punt." : "Prem «Comença» quan estiguis a punt."
+            case .countIn: return "Encara no. Escolta els quatre cops."
+            case .playing: return hearing
+            }
+        }
+        return runner.goalIndex == 0 && runner.round == 0 ? hearing + " Quan vulguis." : hearing
     }
 
     // MARK: Peu
@@ -700,14 +722,41 @@ struct LessonView: View {
                     .frame(minHeight: 44)
             }
         case .rhythm:
-            if !runner.stepComplete {
+            if runner.awaitingVerdict {
+                // L'app no ha pogut comprovar-ho: ho diu l'alumne.
+                Button("Sí, ha sortit bé") { runner.selfVerdict(true) }
+                    .buttonStyle(PrimaryButton())
+                    .disabled(runner.isPlaying)
+                    .accessibilityIdentifier("ha-sortit-be")
+                Button("Encara no") { runner.selfVerdict(false) }
+                    .buttonStyle(SecondaryButton())
+                    .disabled(runner.isPlaying)
+                Button {
+                    runner.playExample()
+                } label: {
+                    Label(runner.isPlaying ? "Sonant…" : "Escolta l'exemple", systemImage: "play.fill")
+                }
+                .font(.body)
+                .foregroundStyle(Theme.soft)
+                .frame(minHeight: 44)
+                .disabled(runner.isPlaying)
+            } else if !runner.stepComplete {
                 Button {
                     runner.startRhythm()
                 } label: {
                     Label(rhythmButtonText, systemImage: "metronome")
                 }
                 .buttonStyle(PrimaryButton())
-                .disabled(runner.rhythmPhase != .idle)
+                .disabled(runner.rhythmPhase != .idle || runner.isPlaying)
+                if runner.selfChecked, runner.rhythmPhase == .idle {
+                    Button {
+                        runner.playExample()
+                    } label: {
+                        Label(runner.isPlaying ? "Sonant…" : "Escolta l'exemple", systemImage: "play.fill")
+                    }
+                    .buttonStyle(SecondaryButton())
+                    .disabled(runner.isPlaying)
+                }
                 Button(onScreen ? "Salta aquest pas" : "Continua sense comprovar") { runner.advance() }
                     .font(.body)
                     .foregroundStyle(Theme.soft)
@@ -717,7 +766,7 @@ struct LessonView: View {
     }
 
     private var rhythmButtonText: String {
-        if runner.rhythmPhase != .idle { return "Sonant…" }
+        if runner.rhythmPhase != .idle || runner.isPlaying { return "Sonant…" }
         return runner.mood == .wrong ? "Torna-hi" : "Comença"
     }
 
