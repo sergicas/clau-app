@@ -1019,7 +1019,7 @@ enum Course {
         id: 5,
         title: "Les dues mans",
         summary: "Baix i melodia, mans juntes",
-        lessons: [notaDeSota, canviarSota, mansAlhora]
+        lessons: [notaDeSota, canviarSota, mansAlhora, contrari]
     )
 
     /// Una nota de l'esquerra que dura un compàs sencer i sona sola el primer cop; la dreta toca als cops 2, 3 i 4.
@@ -1133,6 +1133,44 @@ enum Course {
                     keyboard: handsKeyboard(Score(tones: juntsTot, counts: true, bars: true, grand: true)), pulse: true),
             handsRhythm("Toca els tres compassos: puja fins al sol i torna al do, sempre amb les dues mans.", juntsTot),
             handsRhythm("Ara sense els punts: només amb el que veus escrit.", juntsTot, rounds: 1, counts: false),
+        ]
+    )
+
+    // 36
+    /// Una nota a cada mà, al mateix moment: la dreta a dalt i l'esquerra, a la seva altura.
+    private static func mirror(_ right: Int, _ left: Int, _ beats: Double = 1) -> Tone {
+        Tone(midi: right, beats: beats, also: left)
+    }
+
+    private static let polzes = [mirror(C, lG), mirror(C, lG), mirror(C, lG), mirror(C, lG)]
+    private static let contrariTres = [mirror(C, lG), mirror(D, lF), mirror(E, lE, 2)]
+    private static let contrariObre = [mirror(C, lG), mirror(D, lF), mirror(E, lE), mirror(F, lD), mirror(G, lC, 4)]
+    private static let contrariTot = [mirror(C, lG), mirror(D, lF), mirror(E, lE), mirror(F, lD), mirror(G, lC),
+                                      mirror(F, lD), mirror(E, lE), mirror(D, lF), mirror(C, lG, 4)]
+
+    static let contrari = Lesson(
+        id: "5-contrari", number: 36,
+        title: "Moviment contrari",
+        summary: "Una mà puja i l'altra baixa",
+        minutes: 8,
+        steps: [
+            .look(text: "A la lliçó anterior les dues mans pujaven juntes. Ara cada una va cap al seu costat: la dreta puja i l'esquerra baixa. Se'n diu moviment contrari.",
+                  picture: .staff(Score(tones: contrariTres, bars: true, grand: true))),
+            .look(text: "El secret és als dits: les dues mans fan servir el mateix dit al mateix moment. Comencen els dos polzes, la dreta al do del mig i l'esquerra al sol.",
+                  picture: .keyboard(bothHands)),
+            .listen(text: "Escolta els dos polzes junts, quatre vegades: el do a dalt i el sol a sota.", tones: polzes, bpm: 60,
+                    keyboard: handsKeyboard(Score(tones: polzes, counts: true, bars: true, grand: true)), pulse: true),
+            handsRhythm("Toca el do i el sol alhora amb els dos polzes. Quatre vegades, una a cada cop.", polzes),
+            .listen(text: "Ara dit 1, dit 2 i dit 3 a les dues mans. La dreta fa do, re i mi; l'esquerra, sol, fa i mi. Al final les dues arriben al mi.", tones: contrariTres, bpm: 60,
+                    keyboard: handsKeyboard(Score(tones: contrariTres, counts: true, bars: true, grand: true)), pulse: true),
+            handsRhythm("Toca les tres notes amb les dues mans. Mira que baixin els dos dits iguals: 1 i 1, 2 i 2, 3 i 3.", contrariTres),
+            .listen(text: "Les cinc notes: les mans s'obren fins que la dreta arriba al sol i l'esquerra al do greu. L'última dura tot un compàs.", tones: contrariObre, bpm: 60,
+                    keyboard: handsKeyboard(Score(tones: contrariObre, counts: true, bars: true, grand: true)), pulse: true),
+            handsRhythm("Toca les cinc notes obrint les mans, fins al dit 5 de cada mà. Aguanta l'última quatre cops.", contrariObre),
+            .listen(text: "Obrir i tornar a tancar: tres compassos que acaben als dos polzes, com han començat.", tones: contrariTot, bpm: 60,
+                    keyboard: handsKeyboard(Score(tones: contrariTot, counts: true, bars: true, grand: true)), pulse: true),
+            handsRhythm("Toca els tres compassos: les mans s'obren fins als dits 5 i tornen als polzes.", contrariTot),
+            handsRhythm("Ara sense els punts: només amb el que veus escrit.", contrariTot, rounds: 1, counts: false),
         ]
     )
 }

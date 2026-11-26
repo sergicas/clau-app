@@ -47,6 +47,12 @@
 - **No provat:** amb un piano digital de debò i un cable de debò, ni a l'iPhone (només s'hi ha instal·lat). Tampoc dos dits alhora a la pantalla del telèfon. El cable és USB; per Bluetooth no s'ha fet res.
 - El projecte es regenera amb `xcodegen generate` quan s'afegeix un fitxer a Clau/.
 
+## L36, moviment contrari (2026-11-26)
+- L36 «Moviment contrari» (`Course.contrari`): la dreta puja des del do del mig i l'esquerra baixa des del sol, amb el mateix dit a les dues mans alhora (1 i 1, 2 i 2…). Primer els dos polzes, després tres notes, després les cinc obrint les mans i, per acabar, obrir i tancar en tres compassos. Fa servir `Tone.also` amb notes diferents a cada mà.
+- `proves/llico.sh 36`: tot bé; en mode «octava» falla amb «Aquí anava un sol més avall» i en mode «solta» els passos curts fallen amb «Mantén la tecla apretada». En els passos de nou notes, aixecar el dit d'una sola nota llarga queda dins l'error que es perdona.
+- Alumne simulat: principiant 88–100 %; «ritme propi», 36–91 %, com la L35. Amb micròfon tots els passos de tocar van al mode d'escoltar-se.
+- Vista al Mac (primers passos). No s'ha vist a l'iPhone.
+
 ## Auditoria de ChatGPT (2026-11-25)
 - 17 punts sobre el commit 44eb4ba (abans de la L35). Gairebé tots són certs; en Sergi ha dit de començar pels arreglos petits.
 - **Fets:**
