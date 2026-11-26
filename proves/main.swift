@@ -401,8 +401,11 @@ for lesson in Course.allLessons {
             failures += 1
             print("  MAL  lliçó \(lesson.number): un ritme tocat perfecte no passa")
         }
-        let allowed = tones.filter { !$0.rest }.count / 8
-        if allowed > 0, !perform(tones, beat: 60 / bpm, skip: [0]).passed {
+        // Les notes que es jutgen: les dues mans compten per separat.
+        let allowed = (tones.filter { !$0.rest }.count + tones.filter { $0.also != nil }.count) / 8
+        // Se'n salta una de sola; si totes van a dues mans, la primera (que són dues notes).
+        let single = tones.firstIndex { !$0.rest && $0.also == nil }
+        if allowed >= (single == nil ? 2 : 1), !perform(tones, beat: 60 / bpm, skip: [single ?? 0]).passed {
             failures += 1
             print("  MAL  lliçó \(lesson.number): un ritme llarg no perdona una nota")
         }

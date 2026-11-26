@@ -81,7 +81,7 @@ struct RhythmJudge {
                 notes.append(Note(time: time, beats: tone.beats, written: tone.written, midi: tone.midi, pitchClass: Music.pitchClass(tone.midi), toneIndex: index))
                 // La nota de l'altra mà, que comença alhora: una nota més al mateix moment.
                 if let also = tone.also {
-                    notes.append(Note(time: time, beats: tone.beats, written: tone.written, midi: also, pitchClass: Music.pitchClass(also), toneIndex: index))
+                    notes.append(Note(time: time, beats: tone.beats, written: tone.alsoWritten, midi: also, pitchClass: Music.pitchClass(also), toneIndex: index))
                 }
             }
             time += tone.beats * beat

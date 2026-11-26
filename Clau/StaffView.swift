@@ -60,9 +60,9 @@ struct StaffView: View {
         return tone.midi >= 60 ? staves[0] : staves[1]
     }
 
-    /// La nota que l'altra mà toca alhora, si n'hi ha: dura el mateix.
+    /// La nota que l'altra mà toca alhora, si n'hi ha: dura el mateix, si no s'aguanta més (`alsoHold`).
     private func twin(of tone: Tone) -> Tone? {
-        tone.also.map { Tone(midi: $0, beats: tone.beats, hold: tone.hold) }
+        tone.also.map { Tone(midi: $0, beats: tone.beats, hold: tone.alsoHold ?? tone.hold) }
     }
 
     /// Amb compassos o amb punts de cop, cada nota ocupa el que dura; si no, totes igual.

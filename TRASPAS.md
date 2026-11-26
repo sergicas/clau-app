@@ -53,6 +53,14 @@
 - Alumne simulat: principiant 88–100 %; «ritme propi», 36–91 %, com la L35. Amb micròfon tots els passos de tocar van al mode d'escoltar-se.
 - Vista al Mac (primers passos). No s'ha vist a l'iPhone.
 
+## L37, l'Oda amb acompanyament: la peça de l'etapa 5 (2026-11-27)
+- L37 «L'Oda amb acompanyament» (`Course.odaAcompanyada`, peça): la melodia de sempre a la dreta i, a sota, una rodona per compàs (do o sol) que comença alhora amb la primera nota del compàs i s'aguanta. A l'últim compàs, sol i do de dos cops.
+- Nou `Tone.alsoHold`: la nota de l'altra mà (`also`) dura més que la de dalt. Ho fan servir el pentagrama, el so, el jutge (cal aguantar-la, amb pantalla i cable) i `proves/llico.swift`.
+- La prova del curs «un ritme llarg perdona una nota» ara compta les dues mans i salta una nota sola.
+- `proves/llico.sh 37`: tot bé; en «octava» i «solta» fallen tots els passos de tocar.
+- Alumne simulat (principiant / ritme propi): esquerra sola 63–70 % / 42–48 %; trossos 79–98 % / 32–47 %; la peça sencera (8 compassos) 50–86 % / 4–6 %. El ritme propi sense escoltar el pols no aguanta vuit compassos.
+- No s'ha vist a l'iPhone ni amb un piano de debò.
+
 ## Auditoria de ChatGPT (2026-11-25)
 - 17 punts sobre el commit 44eb4ba (abans de la L35). Gairebé tots són certs; en Sergi ha dit de començar pels arreglos petits.
 - **Fets:**

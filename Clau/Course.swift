@@ -24,9 +24,13 @@ struct Tone: Equatable {
     /// Una segona nota que comença alhora, amb l'altra mà. El micròfon no les sent totes dues: només es comproven
     /// amb el teclat de la pantalla o amb un piano connectat per cable; si no, l'alumne s'escolta.
     var also: Int?
+    /// La nota de l'altra mà (`also`) s'aguanta més: sona i s'escriu així de llarga, mentre la primera mà continua.
+    var alsoHold: Double?
 
     /// El que dura escrita i el que sona.
     var written: Double { hold ?? beats }
+    /// El que dura la nota de l'altra mà.
+    var alsoWritten: Double { alsoHold ?? written }
 
     static func rest(_ beats: Double = 1) -> Tone { Tone(midi: 60, beats: beats, rest: true) }
 }
@@ -1019,7 +1023,7 @@ enum Course {
         id: 5,
         title: "Les dues mans",
         summary: "Baix i melodia, mans juntes",
-        lessons: [notaDeSota, canviarSota, mansAlhora, contrari]
+        lessons: [notaDeSota, canviarSota, mansAlhora, contrari, odaAcompanyada]
     )
 
     /// Una nota de l'esquerra que dura un compàs sencer i sona sola el primer cop; la dreta toca als cops 2, 3 i 4.
@@ -1172,5 +1176,53 @@ enum Course {
             handsRhythm("Toca els tres compassos: les mans s'obren fins als dits 5 i tornen als polzes.", contrariTot),
             handsRhythm("Ara sense els punts: només amb el que veus escrit.", contrariTot, rounds: 1, counts: false),
         ]
+    )
+
+    // 37
+    /// Un compàs de melodia amb una nota de sota que comença alhora amb la primera i s'aguanta tot el compàs.
+    private static func withBass(_ bass: Int, _ bar: [Tone]) -> [Tone] {
+        var tones = bar
+        tones[0].also = bass
+        tones[0].alsoHold = 4
+        return tones
+    }
+
+    private static let odaBaix1 = withBass(lC, Array(odaA.prefix(4))) + withBass(lG, Array(odaA.suffix(4)))
+    private static let odaBaix2 = withBass(lC, Array(odaB.prefix(4))) + withBass(lG, Array(odaB.suffix(3)))
+    /// L'últim compàs canvia a mig camí: sol a sota mentre el re, i do per acabar.
+    private static let odaBaix4: [Tone] = withBass(lC, Array(odaD.prefix(4))) + [
+        Tone(midi: D, beats: 1.5, also: lG, alsoHold: 2), Tone(midi: C, beats: 0.5), Tone(midi: C, beats: 2, also: lC),
+    ]
+    private static let odaBaixos: [Tone] = [long(lC, 4), long(lG, 4)]
+    private static let odaAcompanyadaTota = odaBaix1 + odaBaix2 + odaBaix1 + odaBaix4
+
+    static let odaAcompanyada = Lesson(
+        id: "5-oda", number: 37,
+        title: "L'Oda amb acompanyament",
+        summary: "La melodia a dalt, do i sol a sota",
+        minutes: 10,
+        steps: [
+            .look(text: "La peça de l'etapa és una vella coneguda: l'Oda a l'alegria. La dreta fa la melodia de sempre i l'esquerra l'acompanya amb una nota llarga a cada compàs.",
+                  picture: .staff(Score(tones: odaBaix1, bars: true, grand: true))),
+            .look(text: "A sota només hi ha dues notes: el do greu, amb el dit 5, i el sol, amb el polze. Al primer cop de cada compàs les dues mans toquen alhora; després l'esquerra aguanta i la dreta continua.",
+                  picture: .keyboard(bothHands)),
+            .listen(text: "Primer, només l'acompanyament del primer tros: do i sol. Cada nota dura un compàs sencer.", tones: odaBaixos, bpm: 60,
+                    keyboard: handsKeyboard(Score(tones: odaBaixos, counts: true, bars: true, grand: true)), pulse: true),
+            handsRhythm("Toca només l'esquerra: do amb el dit 5 i sol amb el polze, i aguanta cada nota els quatre cops.", odaBaixos),
+            .listen(text: "Ara el primer tros amb les dues mans: mi, mi, fa, sol a dalt sobre el do, i sol, fa, mi, re sobre el sol.", tones: odaBaix1, bpm: 60,
+                    keyboard: handsKeyboard(Score(tones: odaBaix1, counts: true, bars: true, grand: true)), pulse: true),
+            handsRhythm("Toca el primer tros. Les dues mans comencen juntes i l'esquerra no s'aixeca fins al compàs següent.", odaBaix1),
+            .listen(text: "El segon tros: comença en el do, a dalt i a sota alhora, i acaba amb el re llarg sobre el sol.", tones: odaBaix2, bpm: 60,
+                    keyboard: handsKeyboard(Score(tones: odaBaix2, counts: true, bars: true, grand: true)), pulse: true),
+            handsRhythm("Toca el segon tros. Compte amb el mi amb punt: dura un cop i mig.", odaBaix2),
+            .listen(text: "El final. A l'últim compàs l'esquerra canvia a mig camí: sol mentre sona el re, i do per acabar, amb les dues mans juntes.", tones: odaBaix4, bpm: 60,
+                    keyboard: handsKeyboard(Score(tones: odaBaix4, counts: true, bars: true, grand: true)), pulse: true),
+            handsRhythm("Toca el final. L'últim do, amb les dues mans alhora, aguanta'l dos cops.", odaBaix4),
+            .listen(text: "Tota sencera: el primer tros, el segon, el primer un altre cop i el final.", tones: odaAcompanyadaTota, bpm: 60,
+                    keyboard: handsKeyboard(Score(tones: odaAcompanyadaTota, counts: true, bars: true, grand: true)), pulse: true),
+            handsRhythm("Toca-la sencera, amb les dues mans.", odaAcompanyadaTota, rounds: 1),
+            handsRhythm("Ara sense els punts: només amb el que veus escrit.", odaAcompanyadaTota, rounds: 1, counts: false),
+        ],
+        isPiece: true
     )
 }

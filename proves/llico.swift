@@ -61,9 +61,9 @@ func run(lessonNumber: Int, offset: Double, way: Way) async -> [String] {
             var at = first
             for tone in tones {
                 if !tone.rest {
-                    for key in [tone.midi] + (tone.also.map { [$0] } ?? []) {
+                    for (key, written) in [(tone.midi, tone.written)] + (tone.also.map { [($0, tone.alsoWritten)] } ?? []) {
                         let played = way == .octave && key < 60 ? key + 12 : key
-                        let lift = way == .letGo && tone.written >= 2 ? 0.5 : tone.written - 0.15
+                        let lift = way == .letGo && written >= 2 ? 0.5 : written - 0.15
                         events.append((at + offset, played, true))
                         events.append((at + offset + lift * beat, played, false))
                     }
