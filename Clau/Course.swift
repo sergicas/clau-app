@@ -26,11 +26,15 @@ struct Tone: Equatable {
     var also: Int?
     /// La nota de l'altra mà (`also`) s'aguanta més: sona i s'escriu així de llarga, mentre la primera mà continua.
     var alsoHold: Double?
+    /// Si és una tecla negra, s'escriu amb bemoll (mi♭, a la ratlla del mi) i no amb sostingut (re♯, a la del re).
+    var flat = false
 
     /// El que dura escrita i el que sona.
     var written: Double { hold ?? beats }
     /// El que dura la nota de l'altra mà.
     var alsoWritten: Double { alsoHold ?? written }
+    /// El nom de la nota tal com s'escriu.
+    var name: String { Music.name(midi, flat: flat) }
 
     static func rest(_ beats: Double = 1) -> Tone { Tone(midi: 60, beats: beats, rest: true) }
 }
@@ -578,7 +582,7 @@ enum Course {
     /// Tocar llegint, sense pols. No hi pot haver silencis.
     private static func read(_ text: String, _ tones: [Tone], rounds: Int = 2, names: Bool = false, clef: Bool = true, bars: Bool = false, ends: Bool = true) -> Step {
         let score = Score(tones: tones, clef: clef, names: names, bars: bars, ends: ends)
-        let goals = tones.map { Goal(accept: .named(Music.pitchClass($0.midi)), label: Music.name($0.midi), key: names ? $0.midi : nil) }
+        let goals = tones.map { Goal(accept: .named(Music.pitchClass($0.midi)), label: $0.name, key: names ? $0.midi : nil) }
         return .play(text: text, goals: goals, rounds: rounds, keyboard: keyboard(score), distinct: false)
     }
 
@@ -1234,7 +1238,7 @@ enum Course {
         id: 6,
         title: "Tres cops i tecles negres",
         summary: "El compàs de tres per quatre, sostinguts i bemolls",
-        lessons: [tresPerQuatre]
+        lessons: [tresPerQuatre, sostingut, bemoll, becaire]
     )
 
     /// Una partitura en tres per quatre.
@@ -1277,6 +1281,138 @@ enum Course {
             .rhythm(text: "Toca el vals sencer.", tones: vals, bpm: 66, rounds: 1, keyboard: keyboard(waltz(vals))),
             .rhythm(text: "Ara sense els punts: només amb el que veus escrit.", tones: vals, bpm: 66, rounds: 1,
                     keyboard: keyboard(waltz(vals, counts: false))),
+        ]
+    )
+
+    // 39–41: les tecles negres a la partitura
+    private static let Fs = 66, Eb = 63
+    private static let mib = Tone(midi: Eb, flat: true)
+    private static func mib(_ beats: Double) -> Tone { Tone(midi: Eb, beats: beats, flat: true) }
+
+    /// La mà de sempre, amb un dit que va a una tecla negra.
+    /// `neighbour`: la blanca del costat de la negra (el fa del fa♯), amb el nom escrit encara que no es toqui.
+    private static func blackKeys(_ score: Score?, marked: [Int], fingers: [Int: Int], neighbour: Int? = nil) -> Keyboard {
+        var names: [Int: String] = [:]
+        for key in marked + (neighbour.map { [$0] } ?? []) where !Music.isBlack(key) { names[key] = Music.name(key) }
+        var keyboard = Keyboard(marked: marked, names: score == nil || score?.names == true ? names : [:], fingers: fingers)
+        keyboard.score = score
+        return keyboard
+    }
+
+    private static let sharpMarked = [C, D, E, Fs, G]
+    private static let sharpFingers = [C: 1, D: 2, E: 3, Fs: 4, G: 5]
+    private static func sharpKeys(_ score: Score? = nil) -> Keyboard { blackKeys(score, marked: sharpMarked, fingers: sharpFingers, neighbour: F) }
+
+    private static let flatMarked = [C, D, Eb, F, G]
+    private static let flatFingers = [C: 1, D: 2, Eb: 3, F: 4, G: 5]
+    private static func flatKeys(_ score: Score? = nil) -> Keyboard { blackKeys(score, marked: flatMarked, fingers: flatFingers, neighbour: E) }
+
+    private static let bothMarked = [C, D, Eb, E, F, Fs, G]
+    private static let bothFingers = [C: 1, D: 2, Eb: 3, E: 3, F: 4, Fs: 4, G: 5]
+    private static func bothKeys(_ score: Score? = nil) -> Keyboard { blackKeys(score, marked: bothMarked, fingers: bothFingers) }
+
+    private static func bars(_ tones: [Tone], counts: Bool = true, names: Bool = false) -> Score {
+        Score(tones: tones, names: names, counts: counts, bars: true)
+    }
+
+    // 39
+    private static let faFaSost: [Tone] = [Tone(midi: F), Tone(midi: Fs), Tone(midi: F), Tone(midi: Fs)]
+    private static let sostA: [Tone] = tones([D, E, Fs, G]) + tones([Fs, G, Fs, E])
+    private static let sostB: [Tone] = tones([D, E, Fs, D]) + [long(G, 4)]
+    private static let sost = sostA + sostB
+
+    static let sostingut = Lesson(
+        id: "6-sostingut", number: 39,
+        title: "El sostingut",
+        summary: "La tecla negra de la dreta",
+        minutes: 7,
+        steps: [
+            .look(text: "Les tecles negres també són notes, i prenen el nom d'una blanca del costat. La negra que hi ha just a la dreta del fa és el fa sostingut. Un sostingut puja la nota fins a la tecla més propera de la dreta.",
+                  picture: .keyboard(sharpKeys())),
+            .look(text: "A la partitura, el fa sostingut va al mateix lloc que el fa, amb aquest signe al davant: ♯.",
+                  picture: .staff(Score(tones: [long(F, 2), long(Fs, 2)], names: true, bars: true))),
+            .listen(text: "Escolta fa i fa sostingut, dues vegades. Són tan a prop que gairebé es toquen.", tones: faFaSost, bpm: 66,
+                    keyboard: sharpKeys(bars(faFaSost, names: true)), pulse: true),
+            .play("Toca el fa sostingut amb el dit 4. El dit s'avança una mica i puja a la tecla negra.",
+                  [Goal(accept: .named(6), label: "fa♯", key: Fs)], rounds: 3, keyboard: sharpKeys()),
+            .listen(text: "Re, mi, fa sostingut i sol. Amb el sostingut, el sol sona com si arribessis a casa.", tones: Array(sostA.prefix(4)), bpm: 66,
+                    keyboard: sharpKeys(bars(Array(sostA.prefix(4)), names: true)), pulse: true),
+            .rhythm(text: "Toca re, mi, fa sostingut i sol: dits 2, 3, 4 i 5.", tones: Array(sostA.prefix(4)), bpm: 66, rounds: 2,
+                    keyboard: sharpKeys(bars(Array(sostA.prefix(4)), names: true))),
+            .look(text: "Un sostingut val per tot el compàs: si el fa torna a sortir abans de la ratlla, també és sostingut, encara que no porti el signe.",
+                  picture: .staff(Score(tones: sostA, names: true, bars: true))),
+            .rhythm(text: "Els dos primers compassos. Al segon hi ha dos fa, i tots dos són sostinguts.", tones: sostA, bpm: 66, rounds: 2,
+                    keyboard: sharpKeys(bars(sostA))),
+            .listen(text: "Tota la melodia: quatre compassos que acaben al sol.", tones: sost, bpm: 66,
+                    keyboard: sharpKeys(bars(sost)), pulse: true),
+            .rhythm(text: "Toca-la sencera. Compta quins fa són sostinguts: tots.", tones: sost, bpm: 66, rounds: 1, keyboard: sharpKeys(bars(sost))),
+            .rhythm(text: "Ara sense els punts: només amb el que veus escrit.", tones: sost, bpm: 66, rounds: 1, keyboard: sharpKeys(bars(sost, counts: false))),
+        ]
+    )
+
+    // 40
+    private static let majorMenor: [Tone] = tones([C, D]) + [long(E, 2)] + tones([C, D]) + [mib(2)]
+    private static let bemA: [Tone] = tones([C, D]) + [mib(2), Tone(midi: D), long(C, 3)]
+    private static let bemB: [Tone] = tones([C, D]) + [mib, Tone(midi: F)] + [long(G, 2), mib(2)]
+    private static let bemC: [Tone] = [Tone(midi: F), mib, Tone(midi: D), mib, long(C, 4)]
+    private static let bem = bemB + bemC
+
+    static let bemoll = Lesson(
+        id: "6-bemoll", number: 40,
+        title: "El bemoll",
+        summary: "La tecla negra de l'esquerra",
+        minutes: 7,
+        steps: [
+            .look(text: "El bemoll fa el contrari: baixa la nota fins a la tecla més propera de l'esquerra. La negra que hi ha just a l'esquerra del mi és el mi bemoll.",
+                  picture: .keyboard(flatKeys())),
+            .look(text: "S'escriu al lloc del mi, amb aquest signe al davant: ♭. És la mateixa tecla que el re sostingut: una tecla negra té dos noms, i la partitura tria el que li va millor.",
+                  picture: .staff(Score(tones: [long(E, 2), mib(2)], names: true, bars: true))),
+            .listen(text: "Escolta do, re, mi i després do, re, mi bemoll. Amb el bemoll, la mateixa melodia sona més trista.", tones: majorMenor, bpm: 66,
+                    keyboard: flatKeys(bars(majorMenor, names: true)), pulse: true),
+            .play("Toca el mi bemoll amb el dit 3. El dit s'avança i puja a la tecla negra.",
+                  [Goal(accept: .named(3), label: "mi♭", key: Eb)], rounds: 3, keyboard: flatKeys()),
+            .listen(text: "Do, re, mi bemoll llarg, i tornar a baixar fins al do.", tones: bemA, bpm: 66,
+                    keyboard: flatKeys(bars(bemA, names: true)), pulse: true),
+            .rhythm(text: "Toca-ho: dits 1, 2 i 3, i tornar. El do del final dura tres cops.", tones: bemA, bpm: 66, rounds: 2,
+                    keyboard: flatKeys(bars(bemA, names: true))),
+            .listen(text: "Una melodia trista, en dos trossos. El primer puja fins al sol.", tones: bemB, bpm: 66,
+                    keyboard: flatKeys(bars(bemB)), pulse: true),
+            .rhythm(text: "Toca el primer tros. Tots els mi són bemolls: al segon compàs el signe es torna a escriure.", tones: bemB, bpm: 66, rounds: 2,
+                    keyboard: flatKeys(bars(bemB))),
+            .listen(text: "Sencera: el segon tros baixa a poc a poc fins al do.", tones: bem, bpm: 66,
+                    keyboard: flatKeys(bars(bem)), pulse: true),
+            .rhythm(text: "Toca-la sencera.", tones: bem, bpm: 66, rounds: 1, keyboard: flatKeys(bars(bem))),
+            .rhythm(text: "Ara sense els punts: només amb el que veus escrit.", tones: bem, bpm: 66, rounds: 1, keyboard: flatKeys(bars(bem, counts: false))),
+        ]
+    )
+
+    // 41
+    private static let becA: [Tone] = [Tone(midi: C), Tone(midi: D), mib, Tone(midi: E)] + [long(F, 2), long(E, 2)]
+    private static let becB: [Tone] = tones([G, Fs, F, E]) + [long(D, 2), long(C, 2)]
+    private static let bec = becA + becB
+
+    static let becaire = Lesson(
+        id: "6-becaire", number: 41,
+        title: "El becaire",
+        summary: "Tornar a la tecla blanca",
+        minutes: 7,
+        steps: [
+            .look(text: "Un bemoll o un sostingut val fins a la ratlla de compàs. Si dins del mateix compàs la nota ha de tornar a ser blanca, porta aquest signe: el becaire, ♮.",
+                  picture: .staff(Score(tones: Array(becA.prefix(4)), names: true, bars: true, ends: false))),
+            .look(text: "Després de la ratlla de compàs, el bemoll ja no hi és: el mi del segon compàs és blanc, encara que no porti cap signe.",
+                  picture: .staff(Score(tones: becA, names: true, bars: true))),
+            .listen(text: "Escolta: do, re, mi bemoll, mi. Del bemoll al becaire, la tecla del costat.", tones: becA, bpm: 66,
+                    keyboard: bothKeys(bars(becA, names: true)), pulse: true),
+            .rhythm(text: "Toca-ho. El dit 3 va primer a la tecla negra i després a la blanca.", tones: becA, bpm: 66, rounds: 2,
+                    keyboard: bothKeys(bars(becA, names: true))),
+            .listen(text: "Ara amb el sostingut: sol, fa sostingut, fa i mi. El fa porta becaire perquè torna a ser blanc.", tones: becB, bpm: 66,
+                    keyboard: bothKeys(bars(becB, names: true)), pulse: true),
+            .rhythm(text: "Toca-ho. El dit 4 fa el fa sostingut i després el fa.", tones: becB, bpm: 66, rounds: 2,
+                    keyboard: bothKeys(bars(becB, names: true))),
+            .listen(text: "Tot seguit: puja amb el bemoll i baixa amb el sostingut.", tones: bec, bpm: 66,
+                    keyboard: bothKeys(bars(bec)), pulse: true),
+            .rhythm(text: "Toca els quatre compassos. Mira bé cada signe.", tones: bec, bpm: 66, rounds: 1, keyboard: bothKeys(bars(bec))),
+            .rhythm(text: "Ara sense els punts: només amb el que veus escrit.", tones: bec, bpm: 66, rounds: 1, keyboard: bothKeys(bars(bec, counts: false))),
         ]
     )
 }

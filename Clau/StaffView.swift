@@ -66,7 +66,7 @@ struct StaffView: View {
 
     /// La nota que l'altra mà toca alhora, si n'hi ha: dura el mateix, si no s'aguanta més (`alsoHold`).
     private func twin(of tone: Tone) -> Tone? {
-        tone.also.map { Tone(midi: $0, beats: tone.beats, hold: tone.alsoHold ?? tone.hold) }
+        tone.also.map { Tone(midi: $0, beats: tone.beats, hold: tone.alsoHold ?? tone.hold, flat: tone.flat) }
     }
 
     /// Amb compassos o amb punts de cop, cada nota ocupa el que dura; si no, totes igual.
@@ -113,7 +113,7 @@ struct StaffView: View {
     }
 
     private var accessibilityText: String {
-        let notes = score.tones.map { $0.rest ? "silenci" : Music.name($0.midi) }
+        let notes = score.tones.map { $0.rest ? "silenci" : $0.name }
         let name = score.grand ? "Pentagrama de les dues mans" : (score.bass ? "Pentagrama en clau de fa" : "Pentagrama")
         return notes.isEmpty ? name : name + ": " + notes.joined(separator: ", ")
     }
@@ -137,11 +137,36 @@ struct StaffView: View {
 
     /// Graó de la nota comptant des de la ratlla de sota: 0 és la ratlla, 1 l'espai de sobre…
     /// En clau de sol la ratlla de sota és el mi; en clau de fa, el sol greu.
-    private func step(of midi: Int, bass: Bool) -> Int {
+    /// Una tecla negra amb sostingut va al lloc de la blanca de l'esquerra (do♯, al do); amb bemoll, al de la de la dreta (mi♭, al mi).
+    private func step(of midi: Int, flat: Bool = false, bass: Bool) -> Int {
         let letters = [0, 0, 1, 1, 2, 3, 3, 4, 4, 5, 5, 6]
         let octave = midi / 12 - 1
-        let letter = letters[Music.pitchClass(midi)]
+        let letter = letters[Music.pitchClass(midi)] + (flat && Music.isBlack(midi) ? 1 : 0)
         return bass ? (octave - 2) * 7 + letter - 4 : (octave - 4) * 7 + letter - 2
+    }
+
+    /// Quines notes porten un signe al davant: ♯ o ♭ la primera vegada que una nota s'altera dins d'un compàs, i ♮
+    /// quan torna a ser blanca dins del mateix compàs. Una alteració dura fins a la ratlla de compàs; sense compassos,
+    /// cada nota alterada porta el seu signe. La clau és la posició de la nota i el pentagrama; `twin` marca la de l'altra mà.
+    private func accidentals(in system: System) -> [Int: (main: String?, twin: String?)] {
+        var result: [Int: (main: String?, twin: String?)] = [:]
+        var state: [String: Int] = [:]
+        var bar = -1
+        func sign(for tone: Tone) -> String? {
+            let bass = staff(for: tone).bass
+            let key = "\(bass)-\(step(of: tone.midi, flat: tone.flat, bass: bass))"
+            let alteration = Music.isBlack(tone.midi) ? (tone.flat ? -1 : 1) : 0
+            let before = score.bars ? (state[key] ?? 0) : 0
+            state[key] = alteration
+            guard alteration != before else { return nil }
+            return alteration == 1 ? "♯" : alteration == -1 ? "♭" : "♮"
+        }
+        for note in system.notes where !note.tone.rest {
+            let thisBar = Int(((note.start + 0.001) / meter).rounded(.down))
+            if thisBar != bar { state = [:]; bar = thisBar }
+            result[note.index] = (sign(for: note.tone), twin(of: note.tone).flatMap(sign(for:)))
+        }
+        return result
     }
 
     private func y(ofStep step: Int, in staff: Staff) -> CGFloat { staff.bottom - CGFloat(step) * s / 2 }
@@ -204,20 +229,28 @@ struct StaffView: View {
         let barPad: CGFloat = score.bars ? 0.9 * s : 0
         let quarters = max(0, total - system.total)
         let bars = score.bars ? max(0, Int((total / meter).rounded(.up)) - 1) : 0
-        let beatWidth = max(room - CGFloat(Double(system.notes.count) + quarters) * perNote - CGFloat(bars) * barPad, room * 0.3) / CGFloat(total)
+        // Una nota amb ♯, ♭ o ♮ necessita lloc per al signe, abans del cap.
+        let signs = accidentals(in: system)
+        let signPad: CGFloat = 1.3 * s
+        let signed = Set(signs.filter { $0.value.main != nil || $0.value.twin != nil }.keys)
+        let signedCount = system.notes.filter { signed.contains($0.index) }.count
+        let beatWidth = max(room - CGFloat(Double(system.notes.count) + quarters) * perNote - CGFloat(bars) * barPad - CGFloat(signedCount) * signPad, room * 0.3) / CGFloat(total)
         /// On comença el cop `beat` dins del rengle. Si hi cau una ratlla de compàs, ja és després del seu marge.
         func xAt(_ beat: Double) -> CGFloat {
-            let notesBefore = system.notes.filter { $0.start < beat - 0.001 }.count
+            let notesBefore = system.notes.filter { $0.start < beat - 0.001 }
             let past = max(0, beat - system.total)
             let crossed = score.bars ? min(Int(((beat + 0.001) / meter).rounded(.down)), bars) : 0
-            return left + CGFloat(beat) * beatWidth + CGFloat(Double(notesBefore) + past) * perNote + CGFloat(crossed) * barPad
+            let signedBefore = notesBefore.filter { signed.contains($0.index) }.count
+            return left + CGFloat(beat) * beatWidth + CGFloat(Double(notesBefore.count) + past) * perNote + CGFloat(crossed) * barPad
+                + CGFloat(signedBefore) * signPad
         }
 
         /// On va el cap d'una nota: una mica endins de l'espai que li toca.
         func headX(_ note: Placed) -> CGFloat {
             let slot = CGFloat(note.size) * beatWidth + perNote
             let offset = min(slot * 0.42, 1.7 * s)
-            return xAt(note.start) + (score.bars ? max(offset, 0.85 * s) : offset)
+            let sign = signed.contains(note.index) ? signPad : 0
+            return xAt(note.start) + (score.bars ? max(offset, 0.85 * s) : offset) + sign
         }
 
         for (position, note) in system.notes.enumerated() {
@@ -237,20 +270,20 @@ struct StaffView: View {
                 drawRest(note.tone.beats, in: &context, x: x, color: tint, staff: home)
             } else {
                 if note.index == current {
-                    let center = y(ofStep: step(of: note.tone.midi, bass: home.bass), in: home)
+                    let center = y(ofStep: step(of: note.tone.midi, flat: note.tone.flat, bass: home.bass), in: home)
                     let halo = CGRect(x: x - 1.5 * s, y: center - 1.5 * s, width: 3 * s, height: 3 * s)
                     context.fill(Path(ellipseIn: halo), with: .color(Theme.brass.opacity(0.22)))
                 }
-                drawNote(note.tone, in: &context, x: x, color: tint, staff: home)
+                drawNote(note.tone, in: &context, x: x, color: tint, staff: home, sign: signs[note.index]?.main)
                 // La nota de l'altra mà, que comença alhora: al mateix lloc, al seu pentagrama.
                 if let twin = twin(of: note.tone) {
                     let other = staff(for: twin)
                     if note.index == current {
-                        let center = y(ofStep: step(of: twin.midi, bass: other.bass), in: other)
+                        let center = y(ofStep: step(of: twin.midi, flat: twin.flat, bass: other.bass), in: other)
                         let halo = CGRect(x: x - 1.5 * s, y: center - 1.5 * s, width: 3 * s, height: 3 * s)
                         context.fill(Path(ellipseIn: halo), with: .color(Theme.brass.opacity(0.22)))
                     }
-                    drawNote(twin, in: &context, x: x, color: tint, staff: other)
+                    drawNote(twin, in: &context, x: x, color: tint, staff: other, sign: signs[note.index]?.twin)
                 }
                 // Mentre la nota de sota sona sola, l'altra mà calla: el seu pentagrama porta un silenci.
                 if score.grand, note.tone.hold != nil, let other = staves.first(where: { $0.bass != home.bass }) {
@@ -259,7 +292,7 @@ struct StaffView: View {
             }
 
             var caption: String?
-            if score.names, !note.tone.rest { caption = Music.name(note.tone.midi) }
+            if score.names, !note.tone.rest { caption = note.tone.name }
             if score.counts {
                 drawPips(for: note.index, in: &context, x: x, until: nextX)
             } else if let caption {
@@ -365,10 +398,17 @@ struct StaffView: View {
         context.draw(text, at: CGPoint(x: x, y: centerLine + rise - baseline), anchor: .topLeading)
     }
 
-    private func drawNote(_ tone: Tone, in context: inout GraphicsContext, x: CGFloat, color: Color, staff: Staff) {
-        let position = step(of: tone.midi, bass: staff.bass)
+    private func drawNote(_ tone: Tone, in context: inout GraphicsContext, x: CGFloat, color: Color, staff: Staff, sign: String? = nil) {
+        let position = step(of: tone.midi, flat: tone.flat, bass: staff.bass)
         let centerY = y(ofStep: position, in: staff)
         let rx = 0.64 * s, ry = 0.44 * s
+
+        // El sostingut, el bemoll o el becaire, just a l'esquerra del cap, a l'altura de la nota.
+        if let sign {
+            let text = Text(sign).font(.system(size: 2.3 * s, weight: .regular, design: .serif)).foregroundColor(color)
+            let lift: CGFloat = sign == "♭" ? 0.3 * s : sign == "♯" ? 0.15 * s : 0
+            context.draw(text, at: CGPoint(x: x - 1.55 * s, y: centerY - lift))
+        }
 
         // Fora de les cinc ratlles, la nota porta ratlletes pròpies.
         var ledgers: [Int] = []

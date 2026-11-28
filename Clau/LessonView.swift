@@ -512,7 +512,7 @@ struct LessonView: View {
                 let start = tones.prefix(index).reduce(0) { $0 + $1.beats }
                 let now = runner.rhythmBeat.map { $0 >= start && $0 < start + tone.written } ?? false
                 VStack(spacing: 1) {
-                    Text(tone.rest ? "–" : Music.name(tone.midi))
+                    Text(tone.rest ? "–" : tone.name)
                         .font(Theme.serif(small ? .body : .title3, weight: .semibold))
                     Text(beatsLabel(tone.written))
                         .font(.caption2.weight(.semibold))
@@ -528,7 +528,7 @@ struct LessonView: View {
             }
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Ritme: " + tones.map { ($0.rest ? "silenci" : Music.name($0.midi)) + " " + beatsLabel($0.written) }.joined(separator: ", "))
+        .accessibilityLabel("Ritme: " + tones.map { ($0.rest ? "silenci" : $0.name) + " " + beatsLabel($0.written) }.joined(separator: ", "))
     }
 
     private func chipFill(_ mark: RhythmJudge.Mark) -> Color {

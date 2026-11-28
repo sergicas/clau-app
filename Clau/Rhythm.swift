@@ -21,6 +21,10 @@ struct RhythmJudge {
     /// Si cal la tecla exacta (també l'octava) o n'hi ha prou amb el nom de la nota. El micròfon de vegades salta d'octava;
     /// la pantalla i el cable saben quina tecla és.
     let exact: Bool
+    /// Cops de l'entrada, abans de la primera nota: un compàs (quatre, o tres en tres per quatre). Només per als missatges.
+    var countIn = 4
+    /// Les tecles negres que en aquest ritme s'escriuen amb bemoll: els missatges les anomenen així (mi♭ i no re♯).
+    let flats: Set<Int>
     /// Quant dura tot el ritme, amb l'última nota sencera.
     let length: Double
 
@@ -72,6 +76,7 @@ struct RhythmJudge {
 
     /// `slack` afegeix marge, per quan les notes arriben pel micròfon. `exact` demana la tecla exacta, amb l'octava.
     init(tones: [Tone], beat: Double, slack: Double = 0, exact: Bool = false) {
+        flats = Set(tones.filter { $0.flat && !$0.rest }.map { Music.pitchClass($0.midi) } + tones.filter { $0.flat && $0.also != nil }.map { Music.pitchClass($0.also!) })
         var time = 0.0
         var notes: [Note] = []
         var rests: [Range<Double>] = []
@@ -347,22 +352,27 @@ struct RhythmJudge {
         return median
     }
 
+    /// El nom d'una nota, amb bemoll si aquest ritme l'escriu així.
+    private func named(_ pitchClass: Int) -> String { (flats.contains(pitchClass) ? Music.flatNames : Music.names)[pitchClass] }
+
+    private var countInWord: String { countIn == 3 ? "tres" : "quatre" }
+
     /// Per al registre: què s'esperava i què s'ha tocat, amb els temps en segons.
     var report: String {
-        let wanted = notes.enumerated().map { "\($0 + 1):\(Music.names[$1.pitchClass])@\(String(format: "%.2f", $1.time))" }.joined(separator: " ")
-        let played = presses.map { "\(Music.name($0.midi))@\(String(format: "%.2f", $0.time)) (\($0.result))" }.joined(separator: "; ")
+        let wanted = notes.enumerated().map { "\($0 + 1):\(named($1.pitchClass))@\(String(format: "%.2f", $1.time))" }.joined(separator: " ")
+        let played = presses.map { "\(named(Music.pitchClass($0.midi)))@\(String(format: "%.2f", $0.time)) (\($0.result))" }.joined(separator: "; ")
         return "cop=\(String(format: "%.3f", beat)) marge=\(String(format: "%.3f", tolerance))\n  esperat: \(wanted)\n  tocat: \(played.isEmpty ? "res" : played)\n  \(passed ? "BÉ" : "MAL: " + verdict)"
     }
 
     /// Què ha fallat, dit en una frase.
     var verdict: String {
         if missed == notes.count, extras == 0, wrong == 0, offTime.isEmpty {
-            return "No he sentit cap nota. Entra just després dels quatre cops."
+            return "No he sentit cap nota. Entra just després dels \(countInWord) cops."
         }
         if let shift = wholeShift {
             return shift < 0
-                ? "El ritme és bo, però has entrat abans d'hora. Espera que acabin els quatre cops."
-                : "El ritme és bo, però has entrat tard. La primera nota va just després dels quatre cops."
+                ? "El ritme és bo, però has entrat abans d'hora. Espera que acabin els \(countInWord) cops."
+                : "El ritme és bo, però has entrat tard. La primera nota va just després dels \(countInWord) cops."
         }
         if let ratio = ownTempo {
             return ratio < 1
@@ -375,7 +385,7 @@ struct RhythmJudge {
         let melody = Set(notes.map(\.pitchClass)).count >= 3
         if melody, handKeys >= 3, 2 * handKeys > notes.count, handKeys > aheadKeys, handKeys > behindKeys,
            let first = upKeys > downKeys ? firstUp : firstDown {
-            return "Toques les notes una tecla més \(upKeys > downKeys ? "amunt" : "avall"): on anava \(Music.names[first.wanted]), has tocat \(Music.names[first.heard])."
+            return "Toques les notes una tecla més \(upKeys > downKeys ? "amunt" : "avall"): on anava \(named(first.wanted)), has tocat \(named(first.heard))."
         }
         // Si abans de perdre's ja havia escurçat una nota llarga, el que cal corregir és la nota llarga.
         let cutFirst = cutShort.map { cut in lostAheadFrom.map { shortened(cut.note, before: $0) } ?? false } ?? false
@@ -395,11 +405,11 @@ struct RhythmJudge {
             return "La nota \(ordinal(of: first)) dura \(beats) cops. Mantén la tecla apretada fins que hagin passat tots \(beats)."
         }
         if let firstOctave {
-            let name = Music.names[Music.pitchClass(firstOctave.wanted)]
+            let name = named(Music.pitchClass(firstOctave.wanted))
             return "Aquí anava un \(name) més \(firstOctave.wanted < firstOctave.heard ? "avall" : "amunt"). Mira quina tecla s'encén."
         }
         if let firstWrong {
-            return "Has tocat \(Music.names[Music.pitchClass(firstWrong.heard)]) on anava \(Music.names[firstWrong.wanted])."
+            return "Has tocat \(named(Music.pitchClass(firstWrong.heard))) on anava \(named(firstWrong.wanted))."
         }
         if early > 0, early >= late { return "Vas avançat. Espera el cop abans de tocar." }
         if late > 0 { return "Vas tard. Toca just quan sona el cop." }

@@ -69,6 +69,16 @@
 - `proves/llico.sh 38`: tot bé; en «solta» fallen tots els passos amb blanques. Alumne simulat (principiant / ritme propi): pols 76–83 % / 44–49 %; blanca amb punt 64–66 % / 50–53 %; primer tros 65–70 % / 24–29 %; vals sencer 40–47 % / 4–7 %.
 - Vist al Mac: la llista amb l'etapa 6 i els tres punts de pols. No s'ha vist a l'iPhone.
 
+## L39–L41, sostinguts, bemolls i becaires (2026-11-28)
+- Punt 14 de l'auditoria, segona part. Tres lliçons noves a l'etapa 6: L39 «El sostingut» (fa♯, dit 4), L40 «El bemoll» (mi♭, dit 3; do-re-mi♭ sona trist) i L41 «El becaire» (el signe val fins a la ratlla de compàs; ♮ per tornar a la blanca).
+- `Tone.flat`: una tecla negra s'escriu amb bemoll (al lloc de la blanca de la dreta) i es diu «mi♭» (`Music.flatNames`, `Tone.name`). Per defecte, sostingut.
+- Pentagrama: dibuixa ♯, ♭ i ♮ davant del cap, amb lloc reservat perquè no toquin la nota d'abans (`StaffView.accidentals`). Una alteració val fins a la ratlla de compàs; sense compassos, cada nota alterada porta el signe.
+- Teclat: el número del dit també surt sobre les tecles negres, i la blanca veïna porta el nom.
+- Jutge: anomena les notes amb bemoll si el ritme les escriu així, i els missatges del compte d'entrada diuen «tres cops» en 3/4 (`RhythmJudge.countIn`, que el runner posa del compàs).
+- `proves/llico.sh 39`, `40` i `41`: tot bé. Alumne simulat (principiant / ritme propi): L39 82–98 % / 22–78 %; L40 44–63 % / 14–39 %; L41 40–62 % / 10–33 %. No mesura que costi més trobar una tecla negra.
+- Vist al Mac: el teclat de la L39 (dit 4 al fa♯) i el pas de tocar el mi♭ de la L40 (el mi blanc diu «No és aquesta», el mi♭ «Bé»). No s'ha vist a l'iPhone.
+- Pendent petit: la veu de VoiceOver diu el nom de les tecles negres sempre amb sostingut (`KeyboardView`, «re♯» per al mi♭).
+
 ## Auditoria de ChatGPT (2026-11-25)
 - 17 punts sobre el commit 44eb4ba (abans de la L35). Gairebé tots són certs; en Sergi ha dit de començar pels arreglos petits.
 - **Fets:**

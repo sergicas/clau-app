@@ -346,7 +346,8 @@ final class LessonRunner: ObservableObject {
         // La pantalla i el cable saben quina tecla és: quan hi ha notes de la mà esquerra, l'octava també compta.
         // Pel micròfon, no: de vegades salta d'octava, i n'hi ha prou amb el nom.
         let leftHand = tones.contains { !$0.rest && ($0.midi < 60 || ($0.also ?? 60) < 60) }
-        let judge = RhythmJudge(tones: tones, beat: beat, slack: microphone ? 0.06 : 0, exact: !microphone && leftHand)
+        var judge = RhythmJudge(tones: tones, beat: beat, slack: microphone ? 0.06 : 0, exact: !microphone && leftHand)
+        judge.countIn = meter
         self.judge = own ? nil : judge
         marks = own ? Array(repeating: .pending, count: tones.count) : judge.toneMarks
         awaitingVerdict = false

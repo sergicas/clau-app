@@ -108,12 +108,22 @@ struct KeyboardView: View {
     private func blackKey(_ midi: Int, letter: String?) -> some View {
         ZStack(alignment: .bottom) {
             RoundedRectangle(cornerRadius: 4).fill(fill(midi) ?? Theme.ink)
-            if let letter {
-                Text(letter)
-                    .font(.system(size: 11, weight: .semibold, design: .rounded))
-                    .foregroundStyle(Theme.card.opacity(0.8))
-                    .padding(.bottom, 5)
+            VStack(spacing: 3) {
+                if let letter {
+                    Text(letter)
+                        .font(.system(size: 11, weight: .semibold, design: .rounded))
+                        .foregroundStyle(Theme.card.opacity(0.8))
+                }
+                // Quan un dit va a una tecla negra (el fa♯ amb el dit 4), el número també s'hi posa.
+                if let finger = keyboard.fingers[midi] {
+                    Text("\(finger)")
+                        .font(.system(size: 13, weight: .bold, design: .rounded))
+                        .foregroundStyle(Theme.ink)
+                        .frame(width: 20, height: 20)
+                        .background(Theme.card, in: Circle())
+                }
             }
+            .padding(.bottom, 5)
         }
     }
 
