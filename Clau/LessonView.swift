@@ -459,7 +459,7 @@ struct LessonView: View {
         .accessibilityLabel("Velocitat")
     }
 
-    /// Els quatre cops del compàs; s'encén el que sona.
+    /// Els cops del compàs (quatre o tres); s'encén el que sona.
     private var pulseRow: some View {
         HStack(spacing: 10) {
             pulseDots
@@ -484,7 +484,7 @@ struct LessonView: View {
 
     private var pulseDots: some View {
         HStack(spacing: 10) {
-            ForEach(1...4, id: \.self) { beat in
+            ForEach(1...runner.meter, id: \.self) { beat in
                 Circle()
                     .fill(runner.count == beat ? (beat == 1 ? Theme.terra : Theme.brass) : Theme.line)
                     .frame(width: compact ? 16 : 22, height: compact ? 16 : 22)
@@ -497,9 +497,9 @@ struct LessonView: View {
 
     private var pulseText: String {
         switch runner.rhythmPhase {
-        case .countIn: return "Escolta els quatre cops"
+        case .countIn: return runner.meter == 3 ? "Escolta els tres cops" : "Escolta els quatre cops"
         case .playing: return "Ara tu"
-        case .idle: return runner.isPlaying && runner.sounding == nil && runner.count != nil ? "Quatre cops abans" : ""
+        case .idle: return runner.isPlaying && runner.sounding == nil && runner.count != nil ? (runner.meter == 3 ? "Tres cops abans" : "Quatre cops abans") : ""
         }
     }
 
@@ -687,7 +687,7 @@ struct LessonView: View {
             case .idle:
                 return together ? "Amb dues notes alhora el micròfon no et pot corregir. Toca amb el pols, escolta't i digues-me tu com ha anat."
                     : "Mentre la nota de sota encara sona, el micròfon no et pot corregir. Toca amb el pols, escolta't i digues-me tu com ha anat."
-            case .countIn: return "Encara no. Escolta els quatre cops."
+            case .countIn: return runner.meter == 3 ? "Encara no. Escolta els tres cops." : "Encara no. Escolta els quatre cops."
             case .playing: return "Toca i escolta't."
             }
         }
@@ -695,7 +695,7 @@ struct LessonView: View {
         if case .rhythm = runner.step {
             switch runner.rhythmPhase {
             case .idle: return runner.cable ? "Piano connectat per cable. Prem «Comença» quan estiguis a punt." : "Prem «Comença» quan estiguis a punt."
-            case .countIn: return "Encara no. Escolta els quatre cops."
+            case .countIn: return runner.meter == 3 ? "Encara no. Escolta els tres cops." : "Encara no. Escolta els quatre cops."
             case .playing: return hearing
             }
         }

@@ -61,6 +61,14 @@
 - Alumne simulat (principiant / ritme propi): esquerra sola 63–70 % / 42–48 %; trossos 79–98 % / 32–47 %; la peça sencera (8 compassos) 50–86 % / 4–6 %. El ritme propi sense escoltar el pols no aguanta vuit compassos.
 - No s'ha vist a l'iPhone ni amb un piano de debò.
 
+## L38, el compàs de tres per quatre: etapa 6 nova (2026-11-28)
+- Punt 14 de l'auditoria, primera part. Nova etapa 6 «Tres cops i tecles negres» (`Course.stage6`), pensada per als sostinguts i els bemolls després; «Sortir dels cinc dits» i «Acords» passen a ser la 7 i la 8.
+- `Score.meter` (4 o 3). El pentagrama escriu el 3/4, posa les ratlles cada tres cops i, en 3/4, dos compassos per rengle (quatre amb les dues mans). `LessonRunner.meter` el treu del teclat del pas: el compte d'entrada és d'un compàs (tres cops), el cop fort és el primer de cada tres i els punts de pols de la pantalla són tres. Els textos «Escolta els tres cops» i «Tres cops abans».
+- L38 «Comptar de tres en tres» (`Course.tresPerQuatre`): el pols de tres amb el do, la blanca amb punt (tres cops) i un vals de vuit compassos en dos trossos, a 66.
+- `proves/llico.swift` espera els cops d'un compàs, i la prova del curs mira compassos sencers segons el compàs.
+- `proves/llico.sh 38`: tot bé; en «solta» fallen tots els passos amb blanques. Alumne simulat (principiant / ritme propi): pols 76–83 % / 44–49 %; blanca amb punt 64–66 % / 50–53 %; primer tros 65–70 % / 24–29 %; vals sencer 40–47 % / 4–7 %.
+- Vist al Mac: la llista amb l'etapa 6 i els tres punts de pols. No s'ha vist a l'iPhone.
+
 ## Auditoria de ChatGPT (2026-11-25)
 - 17 punts sobre el commit 44eb4ba (abans de la L35). Gairebé tots són certs; en Sergi ha dit de començar pels arreglos petits.
 - **Fets:**

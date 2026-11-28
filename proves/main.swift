@@ -391,9 +391,10 @@ print(tallat.verdict)
 print("Curs")
 for lesson in Course.allLessons {
     for step in lesson.steps {
-        guard case .rhythm(_, let tones, let bpm, _, _) = step else { continue }
+        guard case .rhythm(_, let tones, let bpm, _, let keyboard) = step else { continue }
         let beats = tones.reduce(0) { $0 + $1.beats }
-        if beats.truncatingRemainder(dividingBy: 4) != 0 {
+        let meter = Double(keyboard.score?.meter ?? 4)
+        if beats.truncatingRemainder(dividingBy: meter) != 0 {
             failures += 1
             print("  MAL  lliçó \(lesson.number): un ritme dura \(beats) cops i no fa compassos sencers")
         }

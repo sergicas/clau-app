@@ -87,6 +87,8 @@ struct Score: Equatable {
     var repeats = false
     /// Els dos pentagrames de les dues mans: del do del mig cap amunt, la clau de sol; cap avall, la de fa.
     var grand = false
+    /// Cops a cada compàs: 4 (el quatre per quatre de sempre) o 3 (tres per quatre, com un vals).
+    var meter = 4
 }
 
 /// El teclat dibuixat que acompanya un pas.
@@ -157,7 +159,7 @@ struct Stage: Identifiable, Equatable {
 // MARK: - Contingut
 
 enum Course {
-    static let stages: [Stage] = [stage1, stage2, stage3, stage4, stage5]
+    static let stages: [Stage] = [stage1, stage2, stage3, stage4, stage5, stage6]
 
     /// Etapes que encara no hi són, per ensenyar el camí.
     static let upcoming: [(title: String, summary: String)] = [
@@ -1224,5 +1226,57 @@ enum Course {
             handsRhythm("Ara sense els punts: només amb el que veus escrit.", odaAcompanyadaTota, rounds: 1, counts: false),
         ],
         isPiece: true
+    )
+
+    // MARK: Etapa 6 · Tres cops i tecles negres
+
+    static let stage6 = Stage(
+        id: 6,
+        title: "Tres cops i tecles negres",
+        summary: "El compàs de tres per quatre, sostinguts i bemolls",
+        lessons: [tresPerQuatre]
+    )
+
+    /// Una partitura en tres per quatre.
+    private static func waltz(_ tones: [Tone], counts: Bool = true, names: Bool = false) -> Score {
+        Score(tones: tones, names: names, counts: counts, bars: true, meter: 3)
+    }
+
+    // 38
+    private static let tresDos: [Tone] = tones([C, C, C, C, C, C])
+    private static let tresExemple: [Tone] = tones([C, E, G]) + [long(C, 3)]
+    private static let tresPunt: [Tone] = [long(C, 2), Tone(midi: E), long(G, 3)]
+    private static let valsA: [Tone] = tones([C, D, E]) + [long(F, 2), Tone(midi: E)] + tones([D, E, D]) + [long(C, 3)]
+    private static let valsB: [Tone] = tones([E, F, G]) + [long(G, 2), Tone(midi: F)] + tones([E, D, E]) + [long(C, 3)]
+    private static let vals = valsA + valsB
+
+    static let tresPerQuatre = Lesson(
+        id: "6-tres", number: 38,
+        title: "Comptar de tres en tres",
+        summary: "El compàs de tres per quatre",
+        minutes: 7,
+        steps: [
+            .look(text: "Fins ara, a cada compàs hi cabien quatre cops. N'hi ha que només en tenen tres: el número de dalt és un 3. Es compta u, dos, tres; u, dos, tres. És el compàs dels valsos.",
+                  picture: .staff(waltz(tresExemple, counts: false))),
+            .listen(text: "Escolta el pols de tres. El primer cop de cada compàs sona més fort: u, dos, tres.", tones: tresDos, bpm: 66,
+                    keyboard: keyboard(waltz(tresDos)), pulse: true),
+            .rhythm(text: "Toca el do a cada cop. Abans, l'app compta tres cops, no quatre.", tones: tresDos, bpm: 66, rounds: 2,
+                    keyboard: keyboard(waltz(tresDos, names: true))),
+            .look(text: "Una blanca amb un punt al costat dura tres cops: els dos de la blanca i un més pel punt. Omple tot un compàs de tres.",
+                  picture: .staff(waltz(tresPunt))),
+            .listen(text: "Do de dos cops i mi d'un; després el sol amb punt, que s'aguanta tot el compàs.", tones: tresPunt, bpm: 66,
+                    keyboard: keyboard(waltz(tresPunt, names: true)), pulse: true),
+            .rhythm(text: "Toca-ho. El sol amb punt no l'aixequis fins que s'hagin encès els tres punts.", tones: tresPunt, bpm: 66, rounds: 2,
+                    keyboard: keyboard(waltz(tresPunt, names: true))),
+            .listen(text: "Un vals petit. Escolta el primer tros: puja de do a fa i torna a baixar fins al do.", tones: valsA, bpm: 66,
+                    keyboard: keyboard(waltz(valsA)), pulse: true),
+            .rhythm(text: "Toca el primer tros. A cada compàs, el primer cop és el fort.", tones: valsA, bpm: 66, rounds: 2,
+                    keyboard: keyboard(waltz(valsA))),
+            .listen(text: "El vals sencer. El segon tros comença al mi i puja fins al sol.", tones: vals, bpm: 66,
+                    keyboard: keyboard(waltz(vals)), pulse: true),
+            .rhythm(text: "Toca el vals sencer.", tones: vals, bpm: 66, rounds: 1, keyboard: keyboard(waltz(vals))),
+            .rhythm(text: "Ara sense els punts: només amb el que veus escrit.", tones: vals, bpm: 66, rounds: 1,
+                    keyboard: keyboard(waltz(vals, counts: false))),
+        ]
     )
 }

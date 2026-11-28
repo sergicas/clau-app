@@ -54,8 +54,9 @@ func run(lessonNumber: Int, offset: Double, way: Way) async -> [String] {
             audio.clicks = []
             if runner.rhythmPhase == .idle { runner.startRhythm() }
             // Espera els quatre cops d'entrada i toca cada nota quan toca, seguint els cops que sonen.
-            while audio.clicks.count < 4 { try? await Task.sleep(for: .milliseconds(5)) }
-            let first = audio.clicks[3] + beat
+            let lead = runner.meter
+            while audio.clicks.count < lead { try? await Task.sleep(for: .milliseconds(5)) }
+            let first = audio.clicks[lead - 1] + beat
             // Primer es fa la llista de quan s'enfonsa i quan s'aixeca cada tecla, i després es toca en ordre.
             var events: [(time: Double, midi: Int, down: Bool)] = []
             var at = first

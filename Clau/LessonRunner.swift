@@ -246,6 +246,14 @@ final class LessonRunner: ObservableObject {
     // MARK: Escoltar
 
     /// L'exemple del pas. En un pas de tocar a temps també es pot tornar a sentir, mentre no s'hi estigui tocant.
+    /// Cops a cada compàs del pas: el compte d'entrada és un compàs i el cop fort és el primer.
+    var meter: Int {
+        switch step {
+        case .listen(_, _, _, let keyboard, _), .rhythm(_, _, _, _, let keyboard): return keyboard.score?.meter ?? 4
+        default: return 4
+        }
+    }
+
     private var example: (tones: [Tone], bpm: Double, pulse: Bool)? {
         switch step {
         case .listen(_, let tones, let bpm, _, let pulse): return (tones, bpm, pulse)
@@ -263,7 +271,8 @@ final class LessonRunner: ObservableObject {
         count = nil
         rhythmBeat = nil
         let beat = beatLength(bpm)
-        let lead = pulse ? 4 : 0
+        let meter = self.meter
+        let lead = pulse ? meter : 0
         let total = tones.reduce(0) { $0 + $1.beats }
         let ticks = pulse ? lead + Int(total.rounded(.up)) : 0
         let origin = CACurrentMediaTime() + delay + 0.05
@@ -291,8 +300,8 @@ final class LessonRunner: ObservableObject {
                 await LessonRunner.sleep(until: event.time)
                 guard !Task.isCancelled, let self else { return }
                 if let tick = event.tick {
-                    self.audio?.click(accent: tick % 4 == 0)
-                    self.count = tick % 4 + 1
+                    self.audio?.click(accent: tick % meter == 0)
+                    self.count = tick % meter + 1
                 }
                 if let piece = event.piece { self.rhythmBeat = piece }
                 if let tone = event.tone {
@@ -325,7 +334,7 @@ final class LessonRunner: ObservableObject {
 
     // MARK: Tocar a temps
 
-    /// Compta quatre cops i després escolta el ritme sencer.
+    /// Compta un compàs (quatre cops, o tres) i després escolta el ritme sencer.
     func startRhythm() {
         guard case .rhythm(_, let tones, let bpm, _, _) = step, !stepComplete, rhythmPhase == .idle, !isPlaying else { return }
         rhythmTask?.cancel()
@@ -348,9 +357,11 @@ final class LessonRunner: ObservableObject {
         rhythmPhase = .countIn
 
         let origin = CACurrentMediaTime() + 0.5
-        let start = origin + 4 * beat
+        let meter = self.meter
+        let lead = Double(meter)
+        let start = origin + lead * beat
         patternStart = start
-        let ticks = 4 + Int((judge.length / beat).rounded(.up))
+        let ticks = meter + Int((judge.length / beat).rounded(.up))
         let lag = inputDelay
 
         rhythmTask = Task { [weak self] in
@@ -359,20 +370,20 @@ final class LessonRunner: ObservableObject {
                 guard !Task.isCancelled, let self else { return }
                 // Al mig del cop només avança per on va la peça, perquè s'encenguin les corxeres que hi cauen.
                 if half % 2 == 1 {
-                    if half > 8 { self.rhythmBeat = Double(half) / 2 - 4 }
+                    if half > 2 * meter { self.rhythmBeat = Double(half) / 2 - lead }
                     continue
                 }
                 let tick = half / 2
-                let counting = tick < 4
+                let counting = tick < meter
                 // Amb un piano de debò el pols calla mentre toques, perquè el micròfon no el confongui amb una nota.
-                if counting || !microphone || own { self.audio?.click(accent: tick % 4 == 0) }
-                self.count = tick % 4 + 1
-                if tick == 3 {
+                if counting || !microphone || own { self.audio?.click(accent: tick % meter == 0) }
+                self.count = tick % meter + 1
+                if tick == meter - 1 {
                     if microphone, !own { self.audio?.setListening(true) }
                     self.showRhythmTarget()
                 }
                 if !counting {
-                    self.rhythmBeat = Double(tick - 4)
+                    self.rhythmBeat = Double(tick - meter)
                     self.rhythmPhase = .playing
                     // Amb el mateix rellotge que els tocs: un toc que arriba tard pel retard del so o del micròfon
                     // encara pot entrar dins del marge, i la nota no s'ha de donar per perduda abans d'hora.

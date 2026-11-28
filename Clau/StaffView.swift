@@ -15,7 +15,11 @@ struct StaffView: View {
     var spacing: CGFloat = 9.5
 
     /// Cops (o notes, si no hi ha compassos) que caben en un rengle. Amb dues mans, més, perquè cada rengle ocupa el doble d'alçada.
-    private var capacity: Double { score.grand ? 16 : 8 }
+    private var capacity: Double {
+        score.meter == 3 ? (score.grand ? 12 : 6) : (score.grand ? 16 : 8)
+    }
+    /// Cops a cada compàs.
+    private var meter: Double { Double(score.meter) }
 
     private struct Placed {
         let index: Int
@@ -181,8 +185,8 @@ struct StaffView: View {
 
         if score.bars, system.isFirst {
             for staff in staves {
-                for line in [3, 1] {
-                    let text = Text("4").font(.system(size: 2.5 * s, weight: .bold, design: .serif)).foregroundColor(Theme.ink)
+                for (line, digit) in [(3, score.meter), (1, 4)] {
+                    let text = Text("\(digit)").font(.system(size: 2.5 * s, weight: .bold, design: .serif)).foregroundColor(Theme.ink)
                     context.draw(text, at: CGPoint(x: left + 0.6 * s, y: staff.bottom - CGFloat(line) * s))
                 }
             }
@@ -199,13 +203,13 @@ struct StaffView: View {
         let perNote: CGFloat = score.bars ? 0.8 * s : 0
         let barPad: CGFloat = score.bars ? 0.9 * s : 0
         let quarters = max(0, total - system.total)
-        let bars = score.bars ? max(0, Int((total / 4).rounded(.up)) - 1) : 0
+        let bars = score.bars ? max(0, Int((total / meter).rounded(.up)) - 1) : 0
         let beatWidth = max(room - CGFloat(Double(system.notes.count) + quarters) * perNote - CGFloat(bars) * barPad, room * 0.3) / CGFloat(total)
         /// On comença el cop `beat` dins del rengle. Si hi cau una ratlla de compàs, ja és després del seu marge.
         func xAt(_ beat: Double) -> CGFloat {
             let notesBefore = system.notes.filter { $0.start < beat - 0.001 }.count
             let past = max(0, beat - system.total)
-            let crossed = score.bars ? min(Int(((beat + 0.001) / 4).rounded(.down)), bars) : 0
+            let crossed = score.bars ? min(Int(((beat + 0.001) / meter).rounded(.down)), bars) : 0
             return left + CGFloat(beat) * beatWidth + CGFloat(Double(notesBefore) + past) * perNote + CGFloat(crossed) * barPad
         }
 
@@ -225,7 +229,7 @@ struct StaffView: View {
             let tint = color(for: note.index)
             let home = staff(for: note.tone)
 
-            if score.bars, note.start > 0, note.start.truncatingRemainder(dividingBy: 4) == 0 {
+            if score.bars, note.start > 0, note.start.truncatingRemainder(dividingBy: meter) == 0 {
                 barline(in: &context, x: start - barPad / 2 - 0.1 * s, width: max(1, s * 0.11))
             }
 
@@ -268,19 +272,19 @@ struct StaffView: View {
             // Els compassos on una mà no toca porten un silenci sencer.
             var bar = 0.0
             while bar < system.total - 0.001 {
-                let inBar = system.notes.filter { $0.start >= bar - 0.001 && $0.start < bar + 4 - 0.001 && !$0.tone.rest }
+                let inBar = system.notes.filter { $0.start >= bar - 0.001 && $0.start < bar + meter - 0.001 && !$0.tone.rest }
                 for staff in staves where !inBar.contains(where: { note in
                     self.staff(for: note.tone).bass == staff.bass || twin(of: note.tone).map { self.staff(for: $0).bass == staff.bass } ?? false
                 }) {
-                    drawRest(4, in: &context, x: (xAt(bar) + xAt(min(bar + 4, total)) - barPad) / 2, color: Theme.ink, staff: staff)
+                    drawRest(4, in: &context, x: (xAt(bar) + xAt(min(bar + meter, total)) - barPad) / 2, color: Theme.ink, staff: staff)
                 }
-                bar += 4
+                bar += meter
             }
         }
 
         if score.bars, !system.notes.isEmpty {
             // Al final d'un rengle curt no hi ha ratlla de compàs entremig: el marge sobra.
-            let onBar = system.total < total - 0.001 && system.total.truncatingRemainder(dividingBy: 4) < 0.001
+            let onBar = system.total < total - 0.001 && system.total.truncatingRemainder(dividingBy: meter) < 0.001
             let end = xAt(system.total) - (onBar ? barPad : 0)
             if system.isLast, score.ends || score.repeats {
                 barline(in: &context, x: end - 0.55 * s, width: max(1, s * 0.11))
